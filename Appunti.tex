@@ -1,0 +1,56 @@
+\documentclass{article}
+\usepackage{fontspec}  % Pacchetto per i font in XeLaTeX
+\setmainfont{Liberation Serif}  % Imposta il font principale
+
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}  % Per il supporto dei colori
+\usepackage{tcolorbox}  % Per creare riquadri personalizzati
+
+% Definizione di un comando per il "backtick style"
+\newtcbox{\hi}{on line, nobeforeafter, colframe=gray!60, colback=gray!20, 
+    boxrule=0.5pt, arc=3pt, fontupper=\ttfamily, left=2pt, right=2pt, 
+    top=2pt, bottom=2pt} 
+
+% Configurazione per il codice
+\lstset{
+    language=Java,                       % Linguaggio di programmazione
+    basicstyle=\ttfamily\small,           % Stile base (monospaziato, dimensione leggermente più grande per chiarezza)
+    keywordstyle=\color{teal}\bfseries,   % Parole chiave in verde acqua (modern look) e in grassetto
+    stringstyle=\color{orange},       % Stringhe in arancione scuro
+    commentstyle=\color{gray}\itshape,    % Commenti in grigio e in corsivo
+    numbers=left,                         % Numeri di linea a sinistra
+    numberstyle=\tiny\color{gray},        % Numeri di linea piccoli e in grigio
+    stepnumber=1,                         % Numerazione di ogni linea
+    breaklines=true,                      % Vai a capo automaticamente quando necessario
+    tabsize=4,                            % Dimensione del tab
+    showstringspaces=false,               % Non mostra spazi negli string literal
+    frame=single,                         % Aggiunge una cornice attorno al codice
+    backgroundcolor=\color{lightgray!10}, % Sfondo molto leggero e discreto
+    morekeywords={String, System, out, println}, % Aggiunta di parole chiave specifiche di Java
+    captionpos=b,                         % Posizione della didascalia sotto il codice
+    keepspaces=true,                      % Mantiene gli spazi
+    emph={public, static, void},          % Parole da enfatizzare
+    emphstyle=\color{blue},               % Colore blu per le parole enfatizzate
+}
+
+
+
+\title{Reti di calcolatori}
+\author{Giacomo Comitani}
+\date{March 2024}
+
+\usepackage{imakeidx}
+\makeindex
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\section{Introduzione}
+
+\section{Lezione 1}
+
+
+\end{document}
