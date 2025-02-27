@@ -1,5 +1,5 @@
 #import "@preview/bubble:0.2.2": *
-#import "note-me/lib.typ": *
+#import "@preview/note-me:0.4.0": *
 
 #show: bubble.with(
   title: "Reti di calcolatori",
