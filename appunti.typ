@@ -217,7 +217,7 @@ Il risultato finale è un array di coordinate di punti, che descrivono il segnal
 
 Per ricostruire correttamente un segnale digitalizzato senza perdita di informazioni, la frequenza di campionamento deve essere almeno il doppio della massima frequenza contenuta nel segnale originale.
 
-Poiché la voce umana arriva fino a circa 4000 Hz, la frequenza minima di campionamento deve essere 8000 campioni al secondo (8 kHz).
+#tip[Poiché la voce umana arriva fino a circa 4000 Hz, la frequenza minima di campionamento deve essere 8000 campioni al secondo (8 kHz).]
 
 === Il Ruolo del Buffer di Playout e Come Risolve il Problema
 
@@ -241,12 +241,12 @@ Questo problema rende necessarie strategie di controllo della congestione, come 
 
 == Il ruolo di TCP nella gestione della congestione
 
-l protocollo TCP è progettato per gestire la congestione della rete, evitando il buffer overflow nei router. La sua strategia è simile all'azione di "chiudere il rubinetto" quando il flusso di dati è troppo elevato:
+Il protocollo TCP è progettato per gestire la congestione della rete, evitando il buffer overflow nei router. La sua strategia è simile all'azione di "chiudere il rubinetto" quando il flusso di dati è troppo elevato:
 
 - Se TCP rileva una congestione, riduce la quantità di dati inviati.
 - Non ritrasmette subito i pacchetti persi, ma aspetta che la congestione si risolva.
 
-Questa tecnica funziona bene nelle reti cablate, dove la perdita di pacchetti è spesso dovuta alla congestione. Tuttavia, nelle reti wireless, la situazione è diversa.
+#warning[Questa tecnica funziona bene nelle reti cablate, dove la perdita di pacchetti è spesso dovuta alla congestione. Tuttavia, nelle reti wireless, la situazione è diversa.]
 
 == TCP e reti wirelesss: problemi e revisione del protocollo
 
@@ -257,3 +257,55 @@ Il tipo di link più soggetto a errori sul canale è il canale wireless. Questo 
 Per questo motivo, l'uso di TCP su reti wireless deve essere gestito con attenzione. In alcuni casi, sono necessarie modifiche o protocolli alternativi per evitare che TCP interpreti erroneamente gli errori del canale come congestione.
 
 D'altro canto, su reti a basso tasso di errore, TCP funziona perfettamente ed è il protocollo più adatto per garantire una trasmissione affidabile.
+
+= Lezione 3
+
+Le reti informatiche sono organizzate secondo un'*architettura gerarchica* suddivisa in livelli, ciascuno con specifiche funzioni di rete. Il modello di riferimento accettato dalla comunità scientifica come standard per l'interconnessione dei sistemi aperti (Open System Interconnection, *OSI*) è strutturato in sette livelli, ognuno dei quali è associato a uno o più protocolli di rete.
+
+== I sette livelli del modello OSI
+
+1. *Livello fisico*: si occupa della trasmissione dei bit attraverso il mezzo fisico di comunicazione (cavi, fibre ottiche, onde radio, ecc.). Gestisce parametri come la velocità di trasmissione e il tipo di segnale.
+
+2. *Livello Data Link* (Collegamento dati): fornisce un formato logico ai dati trasmessi tra due nodi adiacenti. Garantisce un trasferimento affidabile delle informazioni su un singolo collegamento fisico e utilizza protocolli come Ethernet o PPP.
+
+3. *Livello Network* (Rete): gestisce l'instradamento (routing) e l'indirizzamento (addressing) dei pacchetti tra dispositivi non direttamente connessi. Il protocollo più noto di questo livello è l'IP (Internet Protocol), che si occupa di determinare il percorso migliore per far arrivare un pacchetto a destinazione.
+
+4. *Livello Transport* (Trasporto): garantisce un trasferimento dati affidabile ed efficiente tra host finali. Controlla la segmentazione e l'ordine dei pacchetti, offrendo servizi di trasmissione affidabile (TCP) o non affidabile (UDP).
+
+5. *Livello Session* (Sessione): gestisce le sessioni di comunicazione tra applicazioni. Si occupa di stabilire, gestire e terminare le connessioni tra processi remoti. In Internet, le funzionalità di sessione sono integrate nelle socket del sistema operativo.
+
+6. *Livello Presentation* (Presentazione): si occupa della traduzione, compressione e cifratura dei dati, garantendo che le informazioni vengano interpretate correttamente tra diversi sistemi.
+
+7. *Livello Application* (Applicazione): rappresenta il punto di accesso ai servizi di rete per le applicazioni dell’utente, con protocolli come HTTP, FTP e SMTP.
+
+== Il modello Internet (TCP/IP)
+
+Sebbene il modello OSI sia un riferimento teorico, il modello TCP/IP utilizzato in Internet semplifica questa struttura, riducendola a cinque livelli:
+
+- Livello Fisico
+
+- Livello Data-link
+
+- Livello Network
+
+- Livello Transport (con i protocolli TCP e UDP);
+
+- Livello applicazione, che incorpora le funzioni di sessione e presentazione del modello OSI.
+
+#important[Il livello sessione, in particolare, non esiste come entità separata in Internet, ma le sue funzioni sono delegate alle *socket* del sistema operativo, che permettono di gestire le comunicazioni tra processi remoti.]
+
+#align(center, image("images/image-12.png"))
+
+== Il percorso dei pacchetti in rete
+
+Quando un pacchetto di dati viene inviato attraverso la rete, esso attraversa i vari livelli della pila protocollare in un processo chiamato *incapsulamento*. Ogni livello aggiunge un proprio *header* al pacchetto, contenente informazioni di controllo necessarie per la corretta elaborazione dei dati a destinazione.
+
+=== Incapsulamento e deincapsulamento
+
+Il processo inizia con il livello applicazione, che genera i dati da trasmettere. Successivamente, il livello trasporto segmenta i dati in porzioni gestibili e vi aggiunge un'intestazione (header) contenente informazioni sulla connessione. A questo punto interviene il livello rete, che incapsula i segmenti in pacchetti IP, aggiungendo le informazioni necessarie per l'instradamento dei dati. Il livello Data Link prende in carico i pacchetti, incapsulandoli in frame e inserendo informazioni per la trasmissione sul collegamento fisico. Infine, il livello fisico si occupa della trasmissione vera e propria, convertendo il tutto in segnali elettrici, ottici o radio che viaggiano attraverso il mezzo fisico.
+
+Quando il pacchetto arriva a destinazione, il processo viene eseguito in ordine inverso (deincapsulamento), rimuovendo gli header man mano che il pacchetto risale attraverso i livelli della pila protocollare, fino a raggiungere l'applicazione destinataria.
+
+#align(center, image("images/image-13.png", width: 14cm))
+
+In sintesi, l'architettura delle reti segue una struttura stratificata per garantire una comunicazione efficiente e modulare tra i dispositivi connessi. Il modello OSI fornisce un riferimento teorico, mentre il modello TCP/IP rappresenta la realtà delle reti moderne, semplificando l'approccio ma mantenendo le funzionalità essenziali per il funzionamento di Internet.
