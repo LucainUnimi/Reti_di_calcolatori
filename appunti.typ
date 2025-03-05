@@ -309,3 +309,198 @@ Quando il pacchetto arriva a destinazione, il processo viene eseguito in ordine 
 #align(center, image("images/image-13.png", width: 14cm))
 
 In sintesi, l'architettura delle reti segue una struttura stratificata per garantire una comunicazione efficiente e modulare tra i dispositivi connessi. Il modello OSI fornisce un riferimento teorico, mentre il modello TCP/IP rappresenta la realtà delle reti moderne, semplificando l'approccio ma mantenendo le funzionalità essenziali per il funzionamento di Internet.
+
+= Lezione 4
+
+== Livello Data-link
+
+Consideriamo una rete in cui analizziamo il funzionamento di due nodi al suo interno. Ogni nodo possiede tanti livelli Data-Link quanti sono i link a cui è connesso, e altrettanti livelli fisici.
+
+
+#align(center, image("images/image-14.png", width: 14cm))
+
+=== Comunicazione tra livelli
+
+Il livello 3 (Network Layer) può richiedere la trasmissione di un pacchetto al livello fisico secondo due modalità:
+
+- *Affidabile*: il pacchetto viene trasmesso e il livello fisico conferma la ricezione.
+- *Non affidabile*: il pacchetto viene trasmesso senza garanzia di ricezione.
+
+Il livello 3 sceglie quale livello Data-Link attivare in base alla *politica di instradamento* e alle condizioni della rete.
+
+#note[L'algoritmo di instradamento, che opera al livello 3, seleziona dinamicamente la porta di output del router più adatta per il trasferimento dei pacchetti, privilegiando la linea di flusso attualmente più scorrevole.]
+
+=== Affidabilità end-to-end
+
+Al livello 2 si privilegia il *Best Effort*, evitando di sovraccaricare la rete con meccanismi di conferma su ogni collegamento. L'affidabilità diventa così un problema *end-to-end*, gestito direttamente dagli host (livello 4 – Transport Layer), mentre la rete si occupa solo di instradare i pacchetti nel modo più efficiente possibile.
+
+=== Differenza tra livello 2 e livello 3
+
+- *Livello 2*(Data-Link Layer): conosce solo il proprio nodo adiacente e gestisce la trasmissione dei frame tra dispositivi direttamente connessi
+- *Livello 3*(Network Layer): ha una visione globale della rete e costruisce tabelle di instradamento per determinare i percorsi migliori in base ai tempi di percorrenza.
+
+== Struttura della trasmissione al livello 2
+
+A livello fisico, l'informazione viene trasmessa attraverso variazioni di tensione (bit alti e bassi per rappresentare 1 e 0). Tuttavia, quando non si trasmette, il canale si trova in stato di *idle*, rappresentato da una sequenza continua di bit a 1
+
+=== Problemi di delimitazione dei frame
+
+Per distinguere un nuovo frame dallo stato di idle e segnalare correttamente l’inizio e la fine di una trasmissione, si utilizza un meccanismo di *flagging*:
+
+- I protocolli di livello 2 definiscono un delimitatore di inizio e fine del frame chiamato *flag*, rappresentato dalla sequenza fissa di bit `01111110`.
+
+#note[Un esempio di protocollo che utilizza questa tecnica è *HDLC* (High-Level Data Link Control)]
+
+=== Problema della sequenza flag nei dati
+
+Se la sequenza `01111110` compare all'interno dei dati del frame, potrebbe essere erroneamente interpretata come un delimitatore, causando errori di trasmissione. La soluzione a questo problema risiede in una tecnica chiamata *bit stuffing*.
+
+Durante la *trasmissione* il trasmettitore conta i bit a `1` consecutivi. Se ne rileva cinque, inserisce automaticamente un bit `0` dopo la sequenza. Durante la *ricezione*, il ricevitore esegue la stessa operazione in modo inverso, su *TUTTO* quello che arriva sul canale, anche sui bit del flag di fine frame:
+
+- Conta i bit a `1` consecutivi
+- Se rileva cinque bit `1`, verifica il bit successivo:
+  - Se è `0`, lo scarta (bit di stuffing)
+  - Se è `1`, riconosce il flag di fine frame e termina la ricezione
+
+#important[Il bit stuffing garantisce la corretta trasmissione dei dati senza influenzare i tempi di elaborazione!]
+
+#warning[il bit stuffing viene applicato solamente sull'unità dati, e non sui flag di inizio e fine del frame, altrimenti anche questi verrebbero interpretati erroneamente. I flag sono quindi le uniche sequenze di bit dove possono comparire sei bit a `1` consecutivi.]
+
+== Differenza tra pacchetto e frame
+
+Mentre un *pacchetto* è un'unità di dati gestita al livello 3, un *frame* è un'unità di dati gestita al livello 2. Il livello 3 decide il percorso migliore per il trasferimento dei pacchetti, mentre il livello 2 si occupa di trasmettere i frame tra dispositivi direttamente connessi.
+
+La segmentazione e l'incapsulamento delle informazioni seguono questa gerarchia, garantendo un'efficace trasmissione e instradamento dei dati sulla rete.
+
+== Gestione della trasmissione affidabile
+
+Quando si trasmettono pacchetti in modo affidabile attraverso un canale con conferme di ricezione (ACK), possono verificarsi errori di trasmissione, sia per la perdita di frame che per la perdita degli ACK. È quindi necessario un meccanismo per garantire che ogni pacchetto venga ricevuto correttamente e senza duplicati
+
+=== Caso 1: Perdita del frame
+
+- Il trasmettitore invia un frame, ma questo si perde durante la trasmissione
+- Il ricevitore non riceve il frame e, di conseguenza, non invia alcun ACK
+- Il timer associato alla trasmissione scade, generando un'interrupt
+- Il sistema operativo rileva il timeout e comprende che la trasmissione non è andata a buon fine.
+- Il frame viene recuperato dal buffer di trasmissione e ritrasmesso.
+- Il ricevitore riceve correttamente il frame, lo elabora e invia l'ACK corrispondente.
+
+=== Caso 2: Perdita dell'ACK
+
+- Il trasmettitore invia un frame e il ricevitore lo riceve correttamente.
+- Il ricevitore invia l’ACK, ma questo si perde lungo il canale.
+- Il trasmettitore, non ricevendo l’ACK entro il tempo previsto, rileva un timeout e ritrasmette il frame.
+- Il ricevitore riceve nuovamente lo stesso frame e lo elabora. 
+
+#important[Tuttavia, per garantire affidabilità, il protocollo deve impedire la duplicazione dei frame elaborati.]
+
+
+#align(center, image("images/image-15.png", width: 12cm))
+
+== Soluzione: sequenziamento dei frame e ack
+
+Per evitare problemi di duplicazione, è necessario implementare un *meccanismo di numerazione* dei frame e degli ACK. Vengono quindi introdotte delle *Variabili di sequenza* utilizzate dal trasmettitore e dal ricevitore:
+- *Send*: per numerare i frame trasmessi
+- *Receive*: per numerare i frame ricevuti
+
+Entrambe le variabili sono inizializzate a zero, quindi il primo Il primo frame trasmesso avrà numero di sequenza `0`, così come il primo frame atteso dal ricevitore. Se il numero di sequenza di un frame ricevuto non corrisponde a quello atteso, il frame viene scartato per evitare duplicati.
+
+Nonostante l'utilizzo delle variabili di sequenza, potrebbero comunque esserci dei problemi dovuti ad esempio ad un ritardo della ricezione dell'ack, come si può notare nel seguente esempio:
+
+#align(center, image("images/image-16.png"))
+
+#important[Anche gli Ack devono includere un numero di sequenza corrispondente al frame ricevuto correttamente. Questo evita problemi di Ack ritardati relativi a pacchetti precedenti.]
+
+== Componenti necessari per il protocollo affidabile
+Per implementare un protocollo di livello 2 affidabile, sono necessari: 
+- *Buffer di trasmissione*: per conservare una copia del frame finchè non viene ricevuto l'Ack, in modo da poterlo rispedire sul canale.
+- *Clock* e *Timer*: per rilevare timeout in caso di perdita di frame o ACK.
+- *Sequenziamento*: gestione delle variabili di invio e ricezione per evitare duplicati
+
+Grazie a questi elementi, il protocollo può garantire un trasferimento dati affidabile, anche in presenza di perdite di pacchetti o ritardi nella trasmissione.
+
+== Efficienza della trasmissione e utilizzo del canale
+
+=== Introduzione all'utilizzo del canale
+
+L’efficienza di un protocollo di trasmissione può essere valutata attraverso una metrica chiamata *utilizzo del canale*, che indica quanto efficacemente il protocollo sfrutta la capacità del canale fisico.
+
+ricordando che: 
+
+- Tempo di trasmissione del pacchetto: $t_x = "Dimensione del pacchetto"/"Larghezza di banda del canale"$
+- Tempo di propagazione del pacchetto: $t_p = "Distanza"/"Velocità del segnale"$
+- Tempo totale di trasmissione: $T = t_x + 2t_p$
+
+Possiamo calcolare l'utilizzo del canale come: 
+
+#align(center, $U = t_x/T$)
+
+Finora, il protocollo trattato prevede l’invio di un singolo frame alla volta, attendendo la ricezione dell’ACK prima di inviarne un altro. Questo metodo, sebbene garantisca affidabilità, è inefficiente perché lascia il trasmettitore inattivo durante il tempo di propagazione dell’ACK
+
+=== Fattori che influenzano l'efficienza
+
+- *Tempo di trasmissione*: il tempo necessario per trasmettere completamente un frame sul canale.
+- *Tempo di propagazione*: il tempo impiegato dal segnale per viaggiare dal trasmettitore al ricevitore.
+- *Tempo di andata e ritorno* (RTT, Round Trip Time): il tempo totale affinché un frame e il relativo ACK completino il ciclo di trasmissione.
+
+== Limiti dell'approccio stop-and-wait
+
+Nel protocollo attuale (Stop-and-Wait), il trasmettitore invia un frame e attende il relativo ACK prima di inviare il successivo. Questo comporta che dopo aver trasmesso il frame, il trasmettitore rimane inattivo fino alla ricezione dell'ACK. Se $t_p$ è elevato rispetto a $t_x$, gran parte del tempo il canale rimane inutilizzato.
+
+== Miglioramento: invio di più frame in sequenza
+
+Per migliorare l’efficienza, l’obiettivo è raggiungere un utilizzo del canale pari al 100%, evitando i tempi morti tra un frame e l’altro. Un metodo per ottenere questo risultato è l’invio di una sequenza di frame prima di attendere gli ACK, noto come *finestra di trasmissione* (Sliding Window Protocol).
+
+Questo approccio consente al trasmettitore di inviare più frame consecutivamente senza aspettare l’ACK di ciascuno, aumentando drasticamente l’utilizzo del canale.
+
+Quando utilizziamo un protocollo a finestra (come Stop-and-Wait o Sliding Window), la formula per il calcolo dell'utilizzo del canale cambia, poiché dobbiamo considerare il numero di frame che possiamo trasmettere prima di dover attendere un ACK:
+
+#align(center, $U = k * t_x / T$)
+
+Dove k è il numero di frame inviati nella finestra.
+
+Esaminiamo degli esempi per comprendere meglio quanto trattato fino ad ora.
+
+#tip[
+  Consideriamo la seguente situazione:
+  - Larghezza di banda del canale: $T_x  = 10$ Mbps.
+  - Lunghezza del canale: $L$ = 2 km.
+  - Dimensione dei pacchetti: 1000 bit.
+
+  Calcoliamo il tempo di trasmissione $t_x$ e il tempo di propagazione $t_p$ per un pacchetto, e determiniamo l'utilizzo del canale per un protocollo Stop-and-Wait.
+
+  $t_x = 10^3/10^7 = 10^-4 = 0,1$ms.\
+  $t_p = 2 * 10^3/2*10^8 = 10^-5 = 10$ micro-secondi\
+
+  Il tempo totale di trasmissione è quindi pari a $T = 0,1 + 0,02 = 0,12$ ms
+
+  Consideriamo poi una seconda situazione avente:
+  - Larghezza di banda del canale: $T_x  = 10$ Mbps.
+  - Lunghezza del canale: $L$ = 20 km.
+  - Dimensione dei pacchetti: 1000 bit.
+
+  Calcoliamo il tempo di trasmissione $t_x$ e il tempo di propagazione $t_p$ per un pacchetto, e determiniamo l'utilizzo del canale per un protocollo Stop-and-Wait.
+
+  $t_x = 10^3/10^7 = 10^-4 = 0,1$ms.\
+  $t_p = 20 * 10^3/2*10^8 = 10^-4 = 100$ micro-secondi\
+
+  il tempo totale di trasmissione è quindi pari a $T = 0,1 + 0,2 = 0,3$ ms
+
+  Quanto pesa quindi il tempo di propagazione e quanto quello di trasmissione sul tempo finale $T$?
+
+  Nel primo caso, la maggior parte di $T$ è occupata da $t_x$, quindi non posso fare altro
+
+  Nel secondo caso, in cui $2t_p > t_x$, posso *aumentare l'efficienza* della porta di I/O, perchè posso mandare più frame prima di ricevere l'ACK.
+
+  Possiamo accorgerci di questo proprio grazie al  calcolo dell'utilizzo del canale:
+
+  - 1° caso: $U = (0,1)/(0,12) = 0,83$. *utilizzo del canale del 83%*
+  - 2° caso: $U = (0,1)/(0,3) = 0,33$. *utilizzo del canale del 33%*
+
+  Per massimizzare il secondo caso, devo riuscire a mandare in parallelo 3 frame, in modo tale che: 
+
+  #align(center, $U = (3 * 1/3)= 1$)
+
+  Mandando quindi 3 frame, riesco a sfruttare al massimo il canale ( $U$ tende a 1), e quindi a massimizzare l'efficienza della porta di I/O.
+
+]
