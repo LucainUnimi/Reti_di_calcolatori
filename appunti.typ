@@ -504,3 +504,109 @@ Esaminiamo degli esempi per comprendere meglio quanto trattato fino ad ora.
   Mandando quindi 3 frame, riesco a sfruttare al massimo il canale ( $U$ tende a 1), e quindi a massimizzare l'efficienza della porta di I/O.
 
 ]
+
+= Lezione 5
+
+== Dinamica della trasmissione
+
+Nel caso di un protocollo a finestra, il trasmettitore è in grado di inviare più frame consecutivi prima di ricevere un ACK di conferma per ciascuno di essi. Questo sfrutta meglio la capacità del canale rispetto all'approccio stop-and-wait, dove il trasmettitore deve attendere un ACK per ogni frame prima di inviare il successivo. 
+
+#align(center, image("images/image-17.png"))
+
+Come si può osservare, il trasmettitore invia una sequenza di frame senza interrompersi, e ogni ACK ricevuto permette di scorrere la finestra di trasmissione, liberando spazio nel buffer per nuovi frame.
+
+Quando un ACK valido arriva al trasmettitore, il frame corrispondente viene rimosso dal buffer, poiché la sua corretta ricezione è stata confermata.
+
+#important[Quando l'ACK arriva al trasmettitore, il frame corrispondente viene eliminato dal buffer]
+
+== Gestione delle perdite di frame
+
+Nel caso in cui un frame venga perso o danneggiato, il protocollo deve adottare strategie di ritrasmissione che garantiscano:
+1. Mantenimento dell'ordine corretto dei frame
+2. Assenza di frame mancanti
+3. Nessuna duplicazione di frame
+
+== Modalitàdi ricezione nei protocolli a finestra
+
+Nell'ambito dei protocolli di trasmissione a finestra, esistono due approcci principali per la gestione dei frame ricevuti:
+
+1. *Selective repeat*: *utilizza un buffer di ricezione*, permettendo di conservare i frame ricevuti correttamente anche se fuori sequenza. Il trasmettitore ritrasmette solo i frame mancanti, senza dover reinviare l'intera finestra.
+2. *Go-back-n*: *Non utilizza un  buffer di ricezione*, quindi il ricevitore accetta solo frame ricevuti nell'ordine corretto. Se un frame è perso o ricevuto fuori sequenza, tutti i frame successivi vengono ignorati fino a quando il frame mancante no viene correttamente ritrasmesso
+
+== Go-back-n
+
+In *Go-back-n*, se il ricevitore rileva un'interruzione nella sequenza (ovvero, manca un frame), deve negoziare con il trasmettitore la ritrasmissione del frame corretto, che è ancora presente nel buffer di trasmissione del mittente.
+
+Durante questo periodo, *nessun altro frame viene accettato*, rendendo il protocollo meno efficiente.
+
+In particolare:
+
+1. Il ricevitore rileva un "buco" nella sequenza e non può validare il frame successivo.
+2. Invia un *NAK* (Negative Acknowledgment) con il numero di sequenza del frame mancante.
+3. Il trasmettitore *ritrasmette il frame richiesto* e tutti quelli successivi.
+4. Nel frattempo, il ricevitore *smette di inviare ACK*, quindi il buffer del trasmettitore si riempie.
+5. Una volta ricevuto il frame corretto, il ricevitore riprende la trasmissione degli ACK, permettendo al trasmettitore di liberare il buffer e inviare nuovi dati.
+
+#align(center, image("images/image-18.png"))
+
+== ACK selettivi vs ACK cumulativi
+
+Per ottimizzare il meccanismo di conferma della ricezione, possiamo utilizzare due tipi di ACK:
+
+1. ACK *selettivi*: Ogni ACK conferma la ricezione di un singolo frame specifico, identificato dal numero di sequenza. Se un ACK viene perso, il trasmettitore potrebbe dover ritrasmettere frame già ricevuti correttamente, generando overhead aggiuntivo.
+2. ACK *cumulativi*: Ogni ACK non è associato a un singolo frame, ma indica che tutti i frame fino a un certo numero di sequenza sono stati ricevuti correttamente. *Se un ACK viene perso, non ha alcun impatto*, perché il trasmettitore riceverà comunque il successivo, che conferma la ricezione della sequenza completa.
+
+L'ACK cumulativo riduce il numero totale di messaggi di conferma, ottimizzando l'uso della banda, evita la necessità di inviare NAK separati, e dona una maggior robustezza in caso di perdita di ack.
+
+== Selective repeat
+
+In *selective repeat*, si consente al ricevitore di accettare e memorizzare frame fuori sequenza, evitando di ritrasmettere inutilmente frame già ricevuti correttamente.
+
+In particolare: 
+
+1. Il trasmettitore invia i frame secondo una finestra di trasmissione (Sliding Window Protocol).
+2. Il ricevitore accetta e bufferizza i frame ricevuti correttamente, *anche se fuori ordine*.
+3. Se un frame viene perso o corrotto, il ricevitore invia un NAK (Negative Acknowledgment) o evita di inviare un ACK per quel frame.
+4. Il trasmettitore ritrasmette solo i frame mancanti, senza dover reinviare l’intera finestra.
+5. Quando tutti i frame fino a un certo numero sono stati ricevuti e riconosciuti, il ricevitore rilascia i frame in ordine al livello superiore e sposta avanti la finestra di ricezione.
+
+#align(center, image("images/image-20.png"))
+
+#important[Differenza principale rispetto a GO-back-n: Selective repeat mantiene un buffer di ricezione grando n (finestra), permettendo di conservare frame ricevuti correttamente fuori ordine. Questo evita di dover ritrasmettere tutta la finestra quando si verifica un errore. Go-back-n invece ha un buffer di ricezione grande 1]
+
+#important[In Go-Back-N, il trasmettitore usa un unico timer per tutta la finestra: se un pacchetto va perso, ritrasmette tutta la finestra.
+In Selective Repeat, ogni pacchetto ha un proprio timer: se un singolo pacchetto non viene confermato entro il tempo limite, viene ritrasmesso senza toccare gli altri pacchetti.]
+
+== Dimensione del campo del numero di sequenza in base alla finestra di trasmissione (k)
+
+In protocolli di trasmissione come Go-Back-N e Selective Repeat, il numero di sequenza di un pacchetto deve essere unico all'interno della finestra attuale, ma non necessariamente globale per tutta la trasmissione. Per ottimizzare lo spazio, si utilizza un numero di sequenza ciclico, cioè si riutilizzano i numeri dopo un certo limite.
+
+Se la finestra di trasmissione ha dimensione k, il numero di sequenza deve avere abbastanza valori unici per identificare correttamente i pacchetti.
+
+Il numero massimo di sequenze distinte rappresentabili con m bit è:
+
+#align(center, $N = 2^m$)
+
+Analizziamo ora un caso particolare: 
+
+#align(center, image("images/image-19.png"))
+
+== Gestione della ritrasmissione con numerazione ciclica
+
+Quando si usa un numero di sequenza ciclico (che si resetta dopo un certo valore massimo), è importante assicurarsi che il ricevitore non confonda un pacchetto ritrasmesso con uno nuovo. Vediamo come si affronta il problema nei due protocolli principali:
+
+Nel protocollo *Go-Back-N*, il ricevitore accetta solo i frame in ordine e scarta quelli fuori sequenza.
+
+- La dimensione del numero di sequenza deve essere $k+1$ per evitare ambiguità.
+- se $k = 3$, il numero di sequenza ha un massimo di $2^m$ valori.
+- Quando il ricevitore aspetta il frame `4`, tutti i frame con numero `0`, `1`, `2` vengono scartati.
+- Questo assicura che, quando il trasmettitore ritrasmette, il ricevitore possa distinguere tra un frame nuovo e uno vecchio ritrasmesso.
+
+#tip[Se la finestra di trasmissione ha dimensione $k$, il numero di sequenza deve essere $k+1$ per evitare ambiguità.
+Dopo aver ricevuto i pacchetti `1`, `2`, `3`, il ricevitore si aspetta `4`.Se il trasmettitore ritrasmette il pacchetto `1`, il ricevitore capisce che non sono arrivati gli ACK e scarta il pacchetto perché fuori sequenza.]
+
+Nel protocollo *Selective repeat*, questo tipo di numerazione non funziona. Ricordiamo infatti che i pacchetti rimangono in un buffer di ricezione, quindi nel caso di ritrasmissione di un pacchetto, il ricevitore non saprebbe distinguere il pacchetto ritrasmesso da quello vecchio.
+
+- Per distinguere un vecchio pacchetto ritrasmesso da uno nuovo, la finestra di numerazione deve essere almeno $2k$.
+- Se $k=3$, allora la numerazione deve avere almeno 6 valori distinti (da 0 a 5).
+- Questo assicura che, quando il numero di sequenza si ripete, il ricevitore abbia già eliminato i pacchetti precedenti e possa accettare i nuovi senza confusione.
