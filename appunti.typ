@@ -610,3 +610,144 @@ Nel protocollo *Selective repeat*, questo tipo di numerazione non funziona. Rico
 - Per distinguere un vecchio pacchetto ritrasmesso da uno nuovo, la finestra di numerazione deve essere almeno $2k$.
 - Se $k=3$, allora la numerazione deve avere almeno 6 valori distinti (da 0 a 5).
 - Questo assicura che, quando il numero di sequenza si ripete, il ricevitore abbia già eliminato i pacchetti precedenti e possa accettare i nuovi senza confusione.
+
+= Lezione 6
+
+Le reti locali (Local Area Networks, *LAN*) presentano una topologia differente rispetto a quella vista per il livello 2. In particolare, le LAN adottano una topologia di tipo *broadcast*, a differenza della topologia magliata, nota anche come *point-to-point*, in cui ogni nodo è collegato ai suoi adiacenti mediante un link diretto.
+
+In una topologia broadcast, ogni nodo è collegato contemporaneamente a tutti gli altri nodi della rete. Questo significa che quando un nodo trasmette un segnale, esso è ricevuto da tutti i nodi connessi alla rete, *compreso il trasmettitore stesso*.
+
+== Tipologie di topologie di broadcast
+
+=== 1. Topologia a stella con hub passivo
+
+Una delle prime implementazioni della topologia broadcast è quella basata su un *hub*, un dispositivo che funge da centro stella passivo. L'hub riceve il segnale trasmesso da un nodo e lo propaga simultaneamente su tutte le linee di uscita, raggiungendo tutti i dispositivi connessi. La caratteristica principale dell'hub passivo è che esso non introduce alcuna logica di gestione del traffico, limitandosi alla semplice propagazione del segnale.
+
+#align(center, image("images/image-21.png", width: 8cm))
+
+=== 2. Topologia a bus lineare
+
+Un'alternativa alla rete a stella con hub passivo è rappresentata dalla *rete a bus lineare*, utilizzata nelle prime versioni di Ethernet. Questo tipo di rete si basa su un unico mezzo trasmissivo condiviso da tutte le stazioni. Il termine "Ethernet" deriva proprio dal concetto di comunicazione via etere, in cui ogni nodo condivide il mezzo trasmissivo senza connessioni dirette punto-punto.
+
+#align(center, image("images/image-22.png", width: 8cm))
+
+#note[Dal punto di vista concettuale, le topologie a bus lineare e a stella con hub passivo sono entrambe configurazioni di rete broadcast, e quindi equivalenti. Tuttavia, con l'evoluzione delle tecnologie di rete, le reti locali hanno progressivamente abbandonato la topologia a bus lineare in favore della topologia a stella.]
+
+== Problemi e soluzioni nella trasmissione su reti broadcast
+
+In una rete di tipo broadcast, nasce la necessità di implementare un meccanismo che consenta la comunicazione mirata tra dispositivi specifici. Per farlo, ogni pacchetto trasmesso contiene un'intestazione che specifica l'indirizzo del nodo sorgente e dell'eventuale nodo destinatario. In questo modo, i nodi ricevono tutti i pacchetti trasmessi sulla rete, ma elaborano solo quelli destinati a loro.
+
+=== Contesa per l'accesso al canale
+
+Un'altra problematica fondamentale nelle reti broadcast è la *gestione dell'accesso al mezzo trasmissivo condiviso*. Poiché tutti i nodi condividono il canale, deve essere garantito un accesso *mutuamente esclusivo* alla trasmissione dei dati. Senza un meccanismo di regolazione, più nodi potrebbero tentare di trasmettere contemporaneamente, causando collisioni e impedendo una comunicazione efficiente.
+
+Per risolvere questo problema, esistono due principali strategie di accesso al canale:
+
+1. === Accesso deterministico: Token ring
+
+Una rete ad anello con token utilizza un meccanismo *deterministico* per la gestione dell'accesso al canale. Il principio di funzionamento prevede che un *token*, ovvero un piccolo pacchetto speciale, venga fatto circolare lungo l'anello. La stazione che possiede il token è autorizzata a trasmettere un solo pacchetto. Quando il pacchetto inviato completa il giro dell'anello, il token viene rilasciato per consentire ad un altro nodo di trasmettere.
+
+Questo sistema garantisce un *accesso equo* alla rete, permettendo a tutte le stazioni di trasmettere senza rischio di collisioni. Tuttavia, presenta alcuni svantaggi:
+- Il tempo di attesa per ottenere il token può essere lungo, specialmente se l'anello è esteso.
+- Se una stazione si aggiunge o viene rimossa dalla rete, il sistema deve essere aggiornato.
+- È necessaria una *stazione master* che gestisca l'inserimento del token e intervenga nel caso in cui venga perso.
+
+#note[A causa di questi limiti, la topologia Token Ring è stata progressivamente abbandonata.]
+
+2. === Accesso NON detrministico: CSMA/CD in Ethernet
+
+Abbiamo detto che il nostro obiettivo è quello di evitare la collisione tra due frame che sono spediti sul canale nello stesso momento.
+
+#align(center, image("images/image-23.png", width: 8cm))
+
+In questo caso ho quindi accesso libero al cavo, ma accetto la presenza di *collisioni* e quindi del dover ritrasmettere dei frame corrotti.
+
+Al tempo $t_3$ `B` e `C` si accorgono di avere colliso, ma non posso permettere che ritrasmettino subito, altrimenti avrei una nuova collisione. Genero quindi un *ritardo di trasmissione casuale*, diverso per ogni stazione.
+
+Questo algoritmo viene chiamato *Aloha*. 
+
+L'algoritmo Aloha è uno dei primi protocolli sviluppati per la gestione dell’accesso multiplo su un canale condiviso. Tuttavia, presenta una curva di efficienza che tende a diminuire con l’aumentare del numero di stazioni connesse, garantendo un utilizzo del canale di circa il 18%.
+
+L’efficienza così bassa è dovuta a diversi fattori:
+- *Attesa dell’ACK*: Anche se una stazione trasmette da sola, deve attendere un riscontro (ACK) prima di poter inviare un nuovo pacchetto, introducendo ritardi.
+- *Collisioni imprevedibili*: Una trasmissione può iniziare in qualsiasi momento, senza alcun meccanismo di coordinazione, aumentando la probabilità di sovrapposizione tra pacchetti.
+- *Rilevazione tardiva degli errori*: La stazione trasmittente si accorge di un’eventuale collisione solo dopo aver ricevuto o meno l’ACK, il che comporta spreco di banda nel caso di pacchetti corrotti.
+- *Tempi di propagazione elevati*: Originariamente, Aloha fu sviluppato per comunicazioni via satellite, dove il ritardo di propagazione introduceva ulteriori inefficienze.
+
+Per migliorare l’efficienza, sono stati sviluppati protocolli più avanzati che regolano in modo più intelligente l’accesso al canale.
+
+Un’evoluzione di Aloha è il Carrier Sense Multiple Access with Collision Detection (*CSMA/CD*), adottato da *Ethernet*. A differenza di Aloha, dove le stazioni trasmettono senza controllare lo stato del canale, CSMA/CD introduce un meccanismo di ascolto preventivo:
+
+- Ogni nodo ascolta il canale prima di trasmettere (*Carrier Sense*).
+- Se il canale è libero, il nodo trasmette il pacchetto.
+- Se due nodi trasmettono contemporaneamente, si verifica una collisione
+- In caso di collisione, i nodi interrompono la trasmissione e attendono un intervallo di tempo casuale prima di riprovare.
+
+#align(center, image("images/image-24.png", width: 8cm))
+
+#important[In questo modo, si elimina il problema di trasmettere pacchetti completi senza sapere se sono corrotti.]
+
+Con CSMA/CD, ogni stazione è in grado di monitorare il segnale che sta trasmettendo e di confrontarlo con ciò che riceve sul canale. Se una stazione rileva una discrepanza tra il segnale inviato e quello effettivamente presente sul canale, significa che si è verificata una collisione. In questo caso, interrompe immediatamente la trasmissione, evitando di occupare inutilmente il canale con pacchetti lunghi ma corrotti.
+
+Questo meccanismo di *Collision Detection* è possibile grazie alla presenza di due collegamenti sul canale: uno per la trasmissione e uno per la ricezione. Così, la stazione può ascoltare il canale mentre trasmette e accorgersi istantaneamente delle collisioni.
+
+Una volta rilevata una collisione, la stazione applica un meccanismo di ritrasmissione con attesa casuale (backoff esponenziale). In pratica, non prova a trasmettere subito, ma aspetta un intervallo di tempo casuale prima di ritentare, riducendo la probabilità di una nuova collisione.
+
+Grazie a questo sistema, CSMA/CD migliora significativamente l’efficienza rispetto ad Aloha, riducendo lo spreco di banda e ottimizzando l’utilizzo del canale di comunicazione.
+
+Questo approccio permette una gestione più dinamica del traffico di rete, senza necessità di coordinatori centralizzati o token. Tuttavia, essendo un sistema *probabilistico*, non garantisce che ogni nodo trasmetta con la stessa equità di un sistema deterministico come il Token Ring.
+
+#important[*Differenza tra approccio Ethernet e approccio Token-ring*: nell'approccio ethernet il controllo di accesso al canale è totalmente distribuito, non ho un'istituzione centrale che genera il token. Il controllo è equamente distribuito tra tutte le stazioni in rete]
+
+== Gestione della ritrasmissione dopo una collisione
+
+Dopo aver rilevato una collisione, una stazione deve decidere quando ritentare la trasmissione per evitare nuove collisioni immediate. Esistono diversi approcci per determinare il tempo di attesa prima della ritrasmissione, tra cui:
+
+=== *1-Persistent CSMA/CD*
+
+Il protocollo CSMA/CD è *1-persistent*, il che significa che le stazioni monitorano costantemente il canale e, non appena lo rilevano libero, trasmettono immediatamente. Questo comportamento massimizza l’utilizzo del canale ma può aumentare la probabilità di collisioni, specialmente in reti con un alto numero di stazioni.
+=== *Binary Exponential Backoff (BEB)*
+
+Per gestire le collisioni e ridurre la probabilità che si ripetano, CSMA/CD utilizza un meccanismo di backoff esponenziale chiamato Binary Exponential Backoff (*BEB*). Dopo ogni collisione, la stazione attende un tempo casuale prima di ritentare la trasmissione. Questo intervallo di attesa è scelto in modo crescente, in base al numero di collisioni subite
+#align(center, $"ritardo" = "random"(0, 2^i-1) * T_"slot"$)
+
+#note[`i` è il numero di collisioni subite fino a quel momento dalla stazione (ogni stazione tiene traccia autonomamente di questo valore).\
+$T_"slot"$ è il tempo minimo di attesa tra due trasmissioni, tipicamente legato al tempo di propagazione del segnale nella rete.]
+
+Ogni stazione è ancora completamente *autonoma* nella gestione delle collisioni e del backoff. In particolare:
+
+- Sa se ha subito una collisione perché può rilevarla mentre trasmette.
+- Tiene traccia del numero di collisioni avvenute per determinare il valore di i.
+- Decide in modo indipendente il tempo di attesa prima di ritentare la trasmissione, senza bisogno di coordinazione centralizzata.
+
+Grazie a questo meccanismo, CSMA/CD bilancia l'aggressività delle stazioni (1-persistent) con un sistema di attesa progressiva (BEB), ottimizzando l’utilizzo del canale e riducendo il numero di collisioni nel tempo.
+
+=== Definizione dell'unità di tempo nel Binary Exponential Backoff (BEB) secondo IEEE 802.3
+
+Nel protocollo CSMA/CD 1-Persistent, l'unità di tempo utilizzata nel meccanismo di Binary Exponential Backoff (BEB) è derivata dallo standard *IEEE 802.3*, che specifica le caratteristiche fisiche della rete Ethernet cablata.
+
+Lo standard stabilisce che un segmento di rete ethernet classico può avere una lunghezza massima di 2500 metri suddivisa in 5 tratte da 500 metri ciascuna, separate da 4 ripetitori che rigenerano il segnale.
+
+Questa configurazione determina il tempo massimo di propagazione di un segnale attraverso l'intera rete.
+
+Per garantire il corretto funzionamento del protocollo CSMA/CD, lo standard IEEE 802.3 definisce un tempo minimo di attesa, noto come *Slot Time*  che rappresenta il tempo massimo necessario affinché un segnale possa propagarsi attraverso l'intera rete e tornare alla stazione trasmittente in caso di collisione.
+
+=== Calcolo dello slot time
+
+La velocità di propagazione del segnale nei cavi Ethernet in rame è circa $2 × 10^8$m/s, ovvero circa 2/3 della velocità della luce nel vuoto. Considerando una rete con lunghezza massima di 2500 metri, il tempo necessario affinche un segnale percorra questa distanza è:\
+#align(center, $"Tempo di andata" = 2500/2*10^8 = 12.5 "micro-secondi"$ )
+
+Tuttavia, lo standard impone uno Slot Time di *512 bit time*, che per una velocità di 10 Mbps corrisponde a:
+
+#align(center, $512_"bit"/10^7_"bit/s" = 51.2 "micro-secondi"$)
+
+Questo valore è superiore ai 25 µs calcolati per il solo tempo di andata e ritorno. Il motivo di questa scelta è legato a diversi fattori:
+
+- *Margine di sicurezza*: il segnale può subire ritardi nei ripetitori e altri dispositivi di rete.
+- *Garanzia di rilevamento della collisione*: tutte le stazioni devono avere il tempo necessario per rilevare la collisione e reagire.
+- *Compatibilità con altre configurazioni di rete*: lo Slot Time è un parametro fisso che garantisce il corretto funzionamento della rete Ethernet in diverse condizioni operative.
+
+Grazie a questo meccanismo, il protocollo CSMA/CD può rilevare in modo affidabile le collisioni e gestire il backoff esponenziale per ridurre la probabilità di collisioni ripetute.
+
+= Lezione 7
+
