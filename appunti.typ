@@ -751,3 +751,170 @@ Grazie a questo meccanismo, il protocollo CSMA/CD può rilevare in modo affidabi
 
 = Lezione 7
 
+== Codifica di manchester
+
+Nella trasmissione di dati su lunghe distanze, possono verificarsi problemi legati alla corretta interpretazione dei bit, specialmente quando vengono trasmessi lunghi intervalli di zeri o uni consecutivi. Inoltre, i livelli di tensione possono subire distorsioni, rendendo difficile il riconoscimento dei dati trasmessi. Infine, vogliamo dare al ricevitore la capacità di distinguere chiaramente uno stato idle ad uno stato dove ci sono dei bit che stanno arrivando
+
+La *codifica di Manchester* risolve questo problema raddoppiando la velocità del clock di trasmissione, in modo da avere i fronti di clock a metà periodo del bit trasmesso. Questo approccio consente di ridurre la distorsione e garantire una sincronizzazione più precisa tra trasmettitore e ricevitore.
+
+=== Codifica del bit
+
+Secondo lo standard manchester:
+
+- Per trasmettere un `0`, si genera una transizione da alto a basso a metà del periodo.
+- Per trasmettere un `1`, si genera una transizione da basso ad alto a metà del periodo.
+
+Questa tecnica garantisce che vi sia almeno una transizione per ogni bit trasmesso, consentendo al ricevitore di sincronizzarsi con il flusso di dati.
+
+#align(center, image("images/image-25.png"))
+
+Un aspetto importante della codifica di Manchester è la presenza di uno *shift* di mezzo bit nella trasmissione. Questo significa che la sequenza di bit sul cavo inizia con un ritardo di mezzo ciclo di clock rispetto al buffer del trasmettitore (guardo a metà del fronte).
+
+L'innovazione principale di questa tecnica risiede quindi nella combinazione di transizioni *per ogni bit trasmesso* e nella sincronizzazione migliorata, che riduce la probabilità di errori e migliora l'affidabilità della comunicazione su lunghe distanze.
+
+=== Recupero del clock 
+
+Poiché ogni bit contiene almeno una transizione di stato, il ricevitore può sincronizzare il proprio clock su queste transizioni. Ogni transizione, che avviene esattamente nel mezzo del bit, rappresenta un colpo di clock che il ricevitore può utilizzare per allineare il proprio orologio.
+
+Il ricevitore non si sincronizza con tutte le transizioni, ma solo con quelle che sono "necessarie". Il preambolo (una sequenza di bit speciali) è fondamentale per questa operazione: fornisce una serie di transizioni consecutive che consentono al ricevitore di allinearsi con il trasmettitore in modo affidabile. Durante la sequenza di preambolo, il ricevitore può perfezionare la sua sincronizzazione, assicurandosi che il suo clock di ricezione sia correttamente allineato con quello del trasmettitore.
+
+#note[Il *preambolo* è una sequenza di bit (tipicamente alternati 1 e 0, quindi con transizioni continue) che precede il vero e proprio messaggio. Il suo scopo principale è quello di consentire al ricevitore di "rilevare" il clock del trasmettitore. Durante il preambolo, la sequenza di transizioni è abbastanza lunga da permettere al ricevitore di adattarsi e sincronizzarsi al clock di trasmissione. Il preambolo consente quindi di "riconoscere" l'inizio della trasmissione e di avere un allineamento preciso per il resto dei dati.]
+
+#important[Il trasmettitore crea il preambolo prima di inviare i dati reali. Se il protocollo prevede la codifica di Manchester, il trasmettitore invia una sequenza di bit alternati `(1, 0, 1, 0...)` come preambolo.\ Nel contesto di una trasmissione di dati, il preambolo è generalmente generato automaticamente dalla logica del trasmettitore in fase di trasmissione. Non è qualcosa che viene "inserito" manualmente, ma è un componente del protocollo di comunicazione che il trasmettitore sa di dover inviare.]
+
+Una volta che il ricevitore si è sincronizzato con la transizione del preambolo, il suo clock di ricezione è allineato con quello del trasmettitore. Successivamente, ogni bit trasmesso, con le sue transizioni in corrispondenza dei confini di bit, consente al ricevitore di continuare a mantenere il proprio clock allineato con il trasmettitore. Non è più necessario un segnale esterno di clock, poiché il ricevitore continua a estrarre il clock dai dati stessi.
+
+La codifica di manchester fornisce dunque una serie di vantaggi: 
+
+- *Affidabilità*: La sincronizzazione avviene in modo continuo tramite le transizioni, eliminando la necessità di un clock separato o di un segnale di sincronizzazione esterno.
+- *Robustezza alle distorsioni*: Poiché la sincronizzazione si basa sulle transizioni (e non solo sul livello di segnale), la codifica di Manchester è più resistente a distorsioni come rumore o attenuazione del segnale.
+- *Efficiente in canali non sincronizzati*: La codifica di Manchester è particolarmente utile in situazioni in cui il canale di comunicazione non è sincronizzato, o quando è difficile fornire un segnale di clock separato.
+
+== Efficienza del canale in una rete Ethernet
+
+Per analizzare l'efficienza dell'uso del canale in una rete *Ethernet* punto a punto, possiamo considerare il modello di *contesa* e come influisce sulle prestazioni globali, in particolare il *tempo di contesa* (delay) e la *probabilità di collisione*.
+
+La *contesa* si riferisce alla probabilità che più stazioni cercano di accedere al canale nello stesso momento, portando a collisioni.
+
+Il parametro $1/A$ rappresenta questa probabilità di contesa media, dove `A` è il numero medio di contese sul canale. La formulazione del tempo di accesso, pertanto, include questa probabilità di contesa, e il valore di `A` tende a $1/e$ quando il numero di stazioni `k` tende all'infinito (approccio asintotico).
+
+=== Formula dell'efficienza del canale
+
+Nel contesto di una rete punto a punto, l'efficienza d'uso del canale può essere espressa come:
+
+#align(center, $U =t_x /(t_x + 2t_p*e)$)
+
+Dove:
+
+- $t_x$ = tempo di trasmissione
+- $t_p$ = tempo di propagazione
+- $e$ = parametro che tiene conto della contesa e della probabilità di collisione
+
+Sostituiendo questi valori nella formula:
+
+- $t_x = L_"frame"/B$, dove $L_"frame"$ è la lunghezza del frame e $B$ è la valocità di trasmissione
+- $t_p = L_"canale"/v_p$ dove $L_"canale"$ è la lunghezza del canale e $v_p$ è la  velocità di propagazione nel mezzo di trasmissione.
+
+La formula dell'utilizzo si semplifica nel seguente modo:
+
+#align(center, $U = 1/(1 + (2*B*L_"canale"*e)/(L_"frame"*v_p))$)
+
+Questa formula mostra che all'aumentare della banda $B$ o della lunghezza del canale $L_"canale"$, l'efficienza diminuisce. Questo accade perché l'aumento della banda o la lunghezza del canale aumentano il tempo di propagazione rispetto al tempo di trasmissione del frame, il che può portare a un maggiore impatto delle collisioni e della contesa sul canale.
+
+#note[*Contesa e probabilità di collisione*: Il termine $A$ (il quale tende a $1/e$ per $k$ stazioni molto grandi) indica l'impatto delle collisioni nel contesto di un protocollo come *CSMA/CD*. Maggiore è la probabilità di contesa sul canale, più tempo viene perso nel processo di accesso al canale, riducendo l'efficienza complessiva.]
+
+== Topologia ad albero mediante hub
+
+La topologia ad albero formata tramite hub è oggi una delle architetture più utilizzate nelle reti Ethernet. In questa configurazione, le stazioni sono collegate all'hub tramite due cavi: uno per la trasmissione dei dati e uno per la ricezione. Ogni stazione invia e riceve i dati attraverso l'hub, il quale si occupa di ritrasmettere i segnali a tutte le altre stazioni connesse.
+
+#align(center, image("images/image-26.png", width: 10cm))
+
+Un aspetto importante da notare in questa topologia è che le collisioni si verificano all'interno dell'hub, ma non creano problemi per il ricevitore in quanto le stazioni sono in grado di monitorare il proprio traffico. Se un file trasmesso risulta corrotto, la stazione si accorge dell'errore e può richiedere una ritrasmissione del pacchetto, evitando la necessità di ritrasmettere un file errato senza che il ricevitore se ne accorga.
+
+Le collisioni si verificano quando due stazioni tentano di trasmettere nello stesso momento. In questo caso, il segnale che raggiunge l'hub da entrambe le stazioni si sovrappone e le informazioni vengono danneggiate. Tuttavia, questo problema può essere gestito grazie al protocollo CSMA/CD, che è implementato nelle stazioni.
+
+Quando una stazione rileva una collisione, smette di trasmettere e avvia un processo di *ritrasmissione esponenziale backoff*, durante il quale attende un periodo di tempo casuale prima di riprovare a trasmettere.
+
+Quando il numero di stazioni in una rete cresce significativamente, la topologia a stella con hub può diventare inefficace, principalmente a causa della crescente probabilità di collisione. Questo accade perché, all'aumentare del numero di stazioni, il dominio di collisione si espande, e più stazioni competono per l'accesso al canale condiviso, riducendo l'efficienza complessiva della rete. Questo fenomeno si traduce in una riduzione della capacità di trasmissione disponibile e in una maggiore latenza dovuta ai continui tentativi di accesso concorrente al canale.
+
+== Dominio di collisione
+
+Il *dominio di collisione* rappresenta l'insieme di stazioni che condividono un canale di comunicazione e che, pertanto, sono vulnerabili a collisioni tra i loro pacchetti di dati. Quando due stazioni tentano di trasmettere nello stesso momento, si verifica una collisione, e i dati devono essere ritrasmessi. In una topologia centralizzata con hub, tutte le stazioni appartengono al medesimo dominio di collisione, il che significa che l'accesso simultaneo di più stazioni al canale porta inevitabilmente a collisioni, riducendo l'efficienza della rete.
+
+== Soluzione: introduzione del bridge
+
+Per ridurre le collisioni e migliorare l'efficienza della rete, una soluzione comune consiste nell'introdurre un dispositivo chiamato *bridge*. Il bridge funge da "ponte" tra due segmenti di rete, separando fisicamente i domini di collisione. In altre parole, il bridge divide il dominio di collisione in più sottoreti, ognuna delle quali è gestita separatamente.
+
+#align(center, image("images/image-27.png", width: 10cm))
+
+Questa separazione riduce la probabilità di collisione all'interno di ciascun dominio di collisione, poiché solo le stazioni appartenenti a una specifica sottorete competono tra loro per l'accesso al canale. 
+
+#note[Le stazioni appartenenti a sottoreti diverse possono comunque comunicare tra loro attraverso il bridge.]
+
+== Funzionamento del bridge
+
+A differenza di un hub, che è un dispositivo passivo che trasmette semplicemente i pacchetti a tutte le stazioni connesse, il bridge è un *dispositivo intelligente*. Esso esegue una serie di operazioni avanzate per ottimizzare il traffico tra le diverse sottoreti.
+
+Il bridge ha il compito di collegare due o più segmenti di rete, separando i domini di collisione ma mantenendo un unico dominio di broadcast. Il suo funzionamento si basa su un processo di *store and forward*, filtrando e inoltrando i pacchetti solo quando necessario.
+
+=== *Separazione dei Domini di Collisione*
+
+Il bridge agisce come un *ponte* tra due segmenti di rete, riducendo il numero di stazioni che competono per lo stesso canale di trasmissione e, di conseguenza, il numero di collisioni. Tuttavia, *non controlla direttamente le collisioni*, ma le evita separando il traffico tra i segmenti.
+
+=== *Store e fowording*
+
+- Quando un frame arriva al buffer del bridge, il dispositivo esamina l'indirizzo MAC di destinazione.
+- Se la destinazione si trova nello stesso segmento da cui proviene il frame, il bridge scarta il pacchetto, evitando traffico inutile.
+- Se la destinazione si trova nell'altro segmento, il bridge inoltra il pacchetto attraverso la porta corrispondente.
+
+=== Tabella di fowording
+
+Per determinare su quale porta inoltrare i pacchetti, il bridge mantiene una *tabella di forwarding*, che può essere costruita manualmente o attraverso un processo di apprendimento automatico (learning).
+
+Ogni voce nella tabella di forwarding contiene:
+
+- Indirizzo *MAC* della stazione.
+- Porta di *I/O* corrispondente.
+- *Timestamp* per il timeout delle voci obsolete (nelle versioni avanzate).
+
+#align(center, image("images/image-28.png", width: 10cm))
+
+Il bridge aggiorna la tabella automaticamente:
+
+1. Quando riceve un pacchetto, estrae l'indirizzo MAC sorgente e lo associa alla porta da cui è arrivato.
+2. Se l'indirizzo di destinazione è già presente nella tabella, il pacchetto viene inoltrato alla porta corretta.
+3. Se l'indirizzo non è presente, il bridge trasmette il pacchetto su tutte le porte (*flooding*), in attesa di apprendere la posizione del destinatario.
+
+#important[Mentre gli hub lavorano a livello fisico, i bridge lavorano a livello 2]
+
+== Ottimizzazione della rete: l'introduzione dello switch
+
+Per migliorare ulteriormente le prestazioni di una rete e superare i limiti di hub e bridge, si introduce un dispositivo avanzato: lo *switch*.
+
+Lo switch rappresenta un'evoluzione rispetto agli hub e ai bridge, ottimizzando la gestione del traffico di rete e riducendo drasticamente le collisioni. La sua principale innovazione sta nel modo in cui gestisce la connettività tra le porte di ingresso e uscita.
+
+=== Il funzionamento dello switch
+
+Lo switch è un dispositivo di livello 2, proprio come il bridge, e si basa sul concetto di *store and forward*:
+
+1. Riceve il frame e lo immagazzina in un buffer
+2. Analizza il MAC address di destinazione
+3. Consulta la tabella di fowording per determinare la porta di uscita corretta
+4. inoltra il pacchetto *Solo sulla porta corretta*, evitando traffico inutile sulle altre porte.
+
+La tabella di forwarding viene costruita dinamicamente con lo stesso meccanismo del bridge: il dispositivo apprende gli indirizzi MAC associati a ciascuna porta e aggiorna la tabella automaticamente.
+
+#align(center, image("images/image-29.png"))
+
+=== Vantaggi dello switch rispetto al bridge
+
+1. *Connessioni punto-a-punto*: A differenza del bridge, che connette due segmenti di rete condivisi, lo switch stabilisce connessioni dirette tra i dispositivi, creando canali dedicati tra mittente e destinatario. Questo elimina la necessità di gestire le collisioni con il protocollo *CSMA/CD*.
+2. *Prestazioni superiori*: Poiché ogni connessione è indipendente, più dispositivi possono comunicare simultaneamente senza interferenze.
+3. *Eliminazione delle collisioni*: Mentre un bridge separa il dominio di collisione in due parti, uno switch *crea un dominio di collisione separato per ogni porta*. Ciò significa che non avvengono più collisioni tra dispositivi collegati a porte diverse dello switch.
+4. *Supporto a Tecnologie Avanzate*: Gli switch possono utilizzare fibra ottica per connessioni più veloci e affidabili. 
+
+=== Architettura ibrida: Hub e switch
+
+Nelle reti moderne, gli hub vengono spesso utilizzati solo nella *periferia della rete*, per connettere più dispositivi locali. Tuttavia, invece di essere collegati direttamente tra loro, *gli hub vengono collegati a uno switch*, che gestisce il traffico in modo intelligente.
+
+Questa configurazione permette di *limitare i domini di collisione solo alle reti locali* (collegate agli hub), mentre la parte principale della rete, gestita dallo switch, rimane priva di collisioni.
