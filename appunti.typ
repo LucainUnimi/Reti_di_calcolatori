@@ -16,7 +16,12 @@
 #let red(x) = text(fill: rgb("#ff2929"), x)
 #let blue(x) = text(fill: rgb("#2971b8"), x)
 
+#show table.cell: set text(weight: "bold")
 
+#set table(
+  fill: (_, y) => if calc.odd(y) { rgb("#a5e1f7") },
+  stroke: rgb("#000000"),
+)
 
 #outline()
 
@@ -918,3 +923,191 @@ La tabella di forwarding viene costruita dinamicamente con lo stesso meccanismo 
 Nelle reti moderne, gli hub vengono spesso utilizzati solo nella *periferia della rete*, per connettere più dispositivi locali. Tuttavia, invece di essere collegati direttamente tra loro, *gli hub vengono collegati a uno switch*, che gestisce il traffico in modo intelligente.
 
 Questa configurazione permette di *limitare i domini di collisione solo alle reti locali* (collegate agli hub), mentre la parte principale della rete, gestita dallo switch, rimane priva di collisioni.
+
+= Lezione 8
+
+== Ottimizzaziione dell'utilizzo in reti Ethernet ad alta velocità
+
+L’evoluzione delle reti Ethernet ha portato a un aumento significativo della velocità di trasmissione, ma ha anche introdotto nuove problematiche legate all’efficienza della comunicazione e alla gestione delle collisioni. Uno degli aspetti critici è la relazione tra velocità di trasmissione e lunghezza massima del canale, che incide direttamente sulle prestazioni della rete.
+
+=== Problema della lunghezza massima del canale
+
+Consideriamo una rete Ethernet con velocità di *1 Gbps*. Con l’aumento della velocità, la lunghezza massima del canale `L` diventa un parametro fondamentale, in quanto determina il tempo massimo di propagazione e, di conseguenza, la gestione delle collisioni.
+
+Per garantire un elevato utilizzo della rete, una lunghezza $L = 2,5$ km risulta *NON accettabile*. Lo standard Ethernet impone che la distanza massima tra le stazioni più lontane non superi i *200 m* per evitare problemi di latenza e garantire un funzionamento corretto del protocollo di accesso al mezzo trasmissivo.
+
+#align(center, image("images/image-30.png", width: 8cm))
+
+=== Calcolo del tempo di propagazione
+
+#tip[Esempio:\
+Per comprendere meglio il problema, consideriamo il tempo di propagazione massimo di un frame inviato da una stazione `A` a una stazione `C` attraverso un hub:
+
+- `A` -> `Hub` -> `C`
+- `C` -> `Hub` -> `A`
+
+La distanza totale percorsa dal segnale è:
+
+#align(center, $200+200+200+200= 800m$)
+
+Calcoliamo il tempo di propagazione massimo ($2_"tp"$):
+
+#align(center, $2_"tp" = (8*10^2m)/(2*10^8m/s) = 4 "µs"$)
+
+Con una scheda di rete a *1Gbps*, calcoliamo quanti bit possono essere trasmessi in *4 µs*:
+
+#align(center, $1 "µs" = 1000 "bit"$)
+#align(center, $4 * 1000 = 4000 "bit" = 500 "byte"$)
+Questa relazione evidenzia come la velocità di trasmissione influisca sulla gestione dei frame e sulla loro dimensione minima per garantire un’efficienza ottimale della rete.]
+
+=== Dimensione minima di un frame in Gigabit Ethernet
+
+A causa della maggiore velocità di trasmissione, lo standard Ethernet ha dovuto modificare la dimensione minima dei frame per evitare inefficienze legate alle collisioni. In particolare:
+
+- La dimensione minima del frame viene aumentata da *64 byte* a *512 byte*.
+- La lunghezza massima del canale viene ridotta da *2500 m* a *800 m*.
+
+Questa modifica consente di mantenere un tempo di trasmissione sufficiente affinché i frame si propaghino attraverso il canale prima che un'altra stazione inizi una trasmissione, riducendo così il rischio di collisioni.
+
+=== Il ruolo del livello MAC
+
+Per comprendere meglio l’impatto di queste modifiche, è utile analizzare il ruolo del livello *MAC* (Media Access Control), che si colloca all’interno del livello Data Link (Livello 2), tra il livello Fisico (PHY) e il Logical Link Control (LLC).
+
+#align(center, image("images/image-32.png", width: 10cm))
+
+- Il *Livello Fisico* (PHY) si occupa della trasmissione effettiva dei bit sulla rete, attraverso il mezzo trasmissivo (rame, fibra, ecc.).
+- Il *Livello MAC*, invece, è responsabile della gestione dell'accesso al mezzo trasmissivo e del formato delle frame Ethernet.
+- Il *Logical Link Control* (LLC), che si trova sopra il MAC, gestisce l'integrità dei dati e il controllo degli errori.
+
+Questa struttura garantisce che le diverse tecnologie di rete possano essere utilizzate senza modificare il funzionamento logico della comunicazione, adattandosi alle specifiche richieste del mezzo trasmissivo.
+
+il formato dei frame ethernet, generato dal livello MAC, è cosi strutturato:
+
+#align(center, image("images/image-33.png"))
+
+=== Cosa succede se si cambia scheda di rete?
+
+Un aspetto importante dell’adattabilità dello standard Ethernet riguarda la possibilità di sostituire una scheda di rete *10 Mbit/s* con una *1 Gbit/s*. In questo caso, il livello *MAC* continuerà a generare frame minimi da *64 byte*, come previsto dallo standard Ethernet originale. Tuttavia, per garantire la compatibilità con Gigabit Ethernet, la porta di I/O potrebbe applicare un *padding* per aumentare la dimensione del frame fino a *512 byte*, come richiesto dallo standard.
+
+#align(center, image("images/image-31.png", width: 6cm))
+
+Questa flessibilità consente di mantenere la compatibilità con le tecnologie precedenti, senza compromettere le prestazioni delle reti ad alta velocità. Tuttavia, sottolinea anche l'importanza di comprendere come i diversi livelli del modello OSI interagiscano tra loro per ottimizzare l’efficienza della rete.
+
+==  Il ruolo del livello Data Link
+
+Il livello Data Link ha il compito di gestire la comunicazione tra dispositivi direttamente collegati su una rete.
+
+- *Nelle reti magliate*,il livello data link permetteva di creare connessioni punto-punto tra nodi adiacenti.
+- *Nelle reti broadcast*, è necessario gestire l'accesso al mezzo condiviso (entra in gioco il *MAC*)
+
+In Ethernet (IEEE 802.3), il livello Data Link si divide in due sottolivelli:
+
+- *MAC* (Media Access Control) -> Gestisce l’accesso al canale condiviso.
+- *LLC* (Logical Link Control) → Fornisce un’astrazione punto-punto sopra il livello MAC.
+
+#align(center, image("images/image-34.png", width: 8cm))
+
+=== Riassunto MAC layer
+
+Il MAC è responsabile della gestione dell’accesso al mezzo trasmissivo.
+
+- Definisce come i dispositivi possono trasmettere i dati.
+- In Ethernet, quando si usa un *mezzo condiviso*, viene utilizzato *CSMA/CD* per rilevare e gestire le collisioni.
+- Oggi, con gli switch, ogni dispositivo ha un canale dedicato, quindi *CSMA/CD non è più necessario*.
+
+=== LLC Layer (Logical Link Control)
+
+Sopra il MAC troviamo il sottolivello LLC, che ha il compito di:
+
+- *Fornire una connessione logica punto-punto* tra due dispositivi su una rete broadcast.
+- *Nascondere le specifiche del MAC* ai livelli superiori, fornendo un’interfaccia unificata.
+- *Supportare diversi tipi di servizio*, sia *best effort* (come Ethernet) che *affidabile* (con meccanismi di ritrasmissione e controllo degli errori).
+
+#note[Anche se il livello LLC può supportare protocolli affidabili, nella pratica la versione usata è sempre best effort, come avviene in Ethernet.]
+
+#important[A differenza del MAC, che gestisce il mondo broadcast, il livello LLC fornisce una visione logica indipendente dal broadcast, creando canali *punto-punto* tra dispositivi sulla rete.]
+
+Cosa significa?
+
+Se il nodo `A` deve inviare un frame al nodo `C`, il LLC si occupa di astrarre la complessità del MAC, presentando la connessione come se fosse un semplice collegamento diretto tra `A` e `C`. Non è più necessario preoccuparsi di come il MAC trasformi il link fisico per funzionare correttamente. Il livello LLC costruisce un *grafo di connessioni logiche* tra le stazioni, indipendentemente dalla tecnologia sottostante.
+
+#align(center, image("images/image-35.png", width: 8cm))
+
+== Virtual LAN(VLAN)
+
+#important[Una *VLAN* (Virtual LAN) è un'astrazione delle macchine collegate a una rete Ethernet che consente di raggruppare dispositivi in modo logico, indipendentemente dalla loro posizione fisica.]
+
+L'uso di una VLAN comporta numerosi vantaggi quali:
+
+- *Maggiore sicurezza*: Le macchine in VLAN diverse *non possono comunicare direttamente*, riducendo il rischio di accessi non autorizzati.
+- *Maggiore Flessibilità*: I dispositivi possono essere raggruppati per *funzione* e non per posizione fisica.
+- *Ottimizzazione del traffico*: Il traffico viene confinato all'interno della VLAN, riducendo la congestione e migliorando le prestazioni.
+
+=== VLAN e forwarding nei bridge
+
+Nei dispositivi di rete come gli switch (bridge multiporta), le tabelle di *forwarding* devono essere aggiornate per supportare le VLAN.
+
+- *Tabella di forwarding tradizionale*:
+
+#align(center, table(
+  columns: (4fr, 4fr),
+
+  table.header[MAC Address][Porta],
+  [51], [2],
+  [58], [5],
+))
+
+- *Tabella di forwarding con VLAN*:
+
+#align(center, table(
+  columns: (4fr, 4fr, 4fr),
+
+  table.header[MAC Address][Porta][VLAN ID],
+  [51], [2], [10 (ROSSA)],
+  [58], [5], [20 (VERDE)],
+  [59], [6], [20(VERDE)],
+))
+
+Ora una macchina non è più identificata solo dal *MAC address*, ma anche dal *VLAN ID*.
+
+#align(center, image("images/image-36.png"))
+
+- Due dispositivi con MAC address diversi possono appartenere alla stessa VLAN (es. 58 e 59 → VLAN VERDE).
+- Due dispositivi con lo stesso switch fisico possono essere separati logicamente (es. 51 → VLAN ROSSA, mentre 58 → VLAN VERDE).
+- *Il traffico è vincolato alla VLAN* → Una macchina può comunicare solo con dispositivi della stessa VLAN, a meno che non intervenga un router.
+
+#warning[Come popolo la tabella?]
+
+La soluzione è piuttosto semplice: Una macchina si fa "conoscere" non solo mostrando il suo MAC address, ma anche il suo VLAN id.
+
+#warning[Come permetto la comunicazione tra VLAN diverse?]
+
+=== Comunicazione tra VLAN diverse: Routing di Livello 3
+
+Per permettere la comunicazione tra VLAN diverse, è necessario implementare il routing di livello 3. Questo perché le VLAN operano a livello 2 (Data Link) e segmentano la rete in domini di broadcast separati. Per far comunicare dispositivi appartenenti a VLAN differenti, è necessario un dispositivo di livello 3, come un router o uno switch Layer 3 (switch con funzionalità di routing).
+
+#align(center, image("images/image-37.png", width: 10cm))
+
+In una rete VLAN, ogni dispositivo connesso a una porta di uno switch può appartenere a una VLAN specifica. Gli switch gestiscono il traffico tra dispositivi della stessa VLAN senza bisogno di un router. Tuttavia, se un dispositivo in VLAN 10 vuole comunicare con un dispositivo in VLAN 20, sarà necessario un router o uno switch Layer 3.
+
+=== Tipologie di frame nella rete VLAN
+
+1. *Frame Untagged*: Sono i frame inviati da un host a uno switch. Non contengono alcun identificatore VLAN. Quando un frame untagged arriva su una porta I/O, lo switch lo associa a una VLAN specifica.
+2. *Frame tagged*: Sono i frame inviati tra switch per trasportare informazioni su VLAN diverse. Lo switch aggiunge un *Tag VLAN* ai frame per indicare a quale VLAN appartengono.
+
+=== Come avviene il tagging VLAN?
+
+Lo standard IEEE 802.3 originale non prevedeva un campo per il tag VLAN. Per risolvere questo problema, è stato introdotto lo standard *IEEE 802.1Q*, che aggiunge un campo di tag VLAN ai frame Ethernet
+
+#align(center, image("images/image-38.png"))
+
+Il campo Tag VLAN è composto da: 
+
+- VLAN protocol identifier (TPID): valore fisso a 0x8100 che indica la presenza del tag VLAN.
+- VLAN identifier (VID): Specifica a quale VLAN appartiene il frame (colore)
+
+L’aggiunta di questo tag fa aumentare la lunghezza del frame Ethernet da 64-1518 byte a 68-1522 byte.
+
+#note[Il campo *Destination address* viene messo sempre prima del campo *Source address*: Questo è importante per effettuare più velocemente il fowarding: il source address infatti serve solamente per quelle stazioni che non sono ancora presenti in tabella!]
+
+Quando due switch devono comunicare e supportare più VLAN, utilizzano un collegamento chiamato *trunk*. Una porta trunk può trasportare frame di più VLAN utilizzando il *tag VLAN 802.1Q*.
