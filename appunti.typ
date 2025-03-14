@@ -1111,3 +1111,268 @@ L’aggiunta di questo tag fa aumentare la lunghezza del frame Ethernet da 64-15
 #note[Il campo *Destination address* viene messo sempre prima del campo *Source address*: Questo è importante per effettuare più velocemente il fowarding: il source address infatti serve solamente per quelle stazioni che non sono ancora presenti in tabella!]
 
 Quando due switch devono comunicare e supportare più VLAN, utilizzano un collegamento chiamato *trunk*. Una porta trunk può trasportare frame di più VLAN utilizzando il *tag VLAN 802.1Q*.
+
+= Lezione 9
+
+Quando un dispositivo comunica al di fuori della LAN, non può più fare affidamento sugli indirizzi MAC per identificare gli apparati, ma deve utilizzare il *protocollo IP*. Il protocollo IP è responsabile dell'instradamento dei pacchetti attraverso reti diverse fino alla loro destinazione.
+
+In questa trattazione ci occupiamo dello standard *IPv4*.
+
+== Struttura di un pacchetto IPv4
+
+Un pacchetto IPv4 è composto da un *header* e un *payload*. L'header standard è di 20 byte (5 parole da 32 bit), ma può essere esteso con il campo "Options".
+
+=== Struttura dell'header IPv4
+
+L'header IPv4 è suddiviso in diversi campi:
+
+1. *Version*(4 bit): Indica la versione del protocollo IP (4 per IPv4, 6 per IPv6)
+2. *Lunghezza Header* (4 bit): Specifica la lunghezza dell'header IP in parole da 32 bit (necessario in caso di opzioni aggiuntive).
+3. Type of Service (*TOS*) (8 bit): Definisce la priorità del pacchetto. Questo campo permette di assegnare differenti livelli di servizio in base alla tipologia di traffico.
+4. *Total Length* (16 bit): Indica la lunghezza totale del pacchetto (header + payload) in byte. Valore massimo: 65.535 byte
+
+#align(center, image("images/image-39.png"))
+
+=== Gestione della frammentazione
+
+Il secondo blocco da 32 bit riguarda la frammentazione del pacchetto:
+
+5. *Identification* (16 bit): Numero identificativo del pacchetto, utile per la riassemblaggio di frammenti.
+6. *Flags*:
+  - Bit 0 (riservato)
+  - *D bit*: se impostato impedisce la frammentazione del pacchetto
+  - *M bit*: se impostato, indica che  ci sono frammenti successivi
+7. *Fragment Offset*: Indica la posizione del frammento rispetto al pacchetto originale
+
+L'IP può frammentare i pacchetti quando la rete sottostante ha limiti di dimensione. Questo livello di frammentazione è distinto da quello del livello 4 (es. segmentazione TCP). Infatti, la frammentazione avviene su due livelli:
+
+- *Frammentazione di livello 4*: Avviene quando un'unità dati utente (User Data Unit) viene generata al livello 7, poi passata al livello 4, dove viene frammentata in segmenti. Ogni segmento può avere una lunghezza massima di 65.535 byte.
+- *Frammentazione di livello 3*: Si occupa di adattare i pacchetti alla rete fisica sottostante. Ad esempio, una rete Ethernet ha una dimensione massima di frame di 1500 byte (inclusi header e dati). Se il pacchetto IP è più grande, deve essere frammentato ulteriormente a livello 3, altrimenti viene scartato.
+
+#align(center, image("images/image-40.png"))
+
+L'interfaccia di livello 3 deve conoscere la Maximum Transmission Unit (*MTU*) della rete sottostante per determinare la grandezza massima dei pacchetti che possono essere inviati senza frammentazione.
+
+=== Gestione della durata e integrità del pacchetto
+
+L'header prosegue con informazioni essenziali per il controllo del pacchetto:
+
+8. Time To Live (*TTL*): Indica il numero massimo di `hop` (router attraversabili). Ad ogni `hop` il valore viene decrementato. Se arriva a 0, il pacchetto viene scartato.
+9. *Protocol Selector*: A seconda del protocollo sorgente seleziona quello nnecessario in ricezione. (TCP - TCP, UDP - UDP)
+10. *Header Checksum* (16 bit): Controllo di errore sull'header. Viene ricalcolato a ogni hop. IPv4 è una rete best effort, quindi non garantisce l'affidabilità. L'header checksum fornisce un'ulteriore verifica di integrità sull'header (non sui dati) calcolando una somma sulle 5 parole da 32 bit dell'header.
+
+=== Indirizzamento IP
+
+L'IP è un protocollo *best-effort*, quindi non garantisce la consegna dei pacchetti.
+
+11. *Source IP Address* (32 bit): Indirizzo IP del mittente.
+12. *Destination IP Address* (32 bit): Indirizzo IP del destinatario.
+
+=== Opzioni e payload
+
+13. *Options* (variabile): Campo opzionale per funzionalità avanzate (es. Source Routing).
+14. *Payload*: Dati trasportati (es. segmenti TCP o datagrammi UDP)
+
+come si frammentano i paccehtti al livello 3?
+
+si sono inventati del contare gli ottetti. indice framment offset a 1? ho mandato il primo ottetto. questo ha delle implicazini su quello che posso mandare: deve essere un multiplo di 8
+
+== Frammentazione dei pacchetti IP a livello 3
+
+La frammentazione dei pacchetti IP avviene a livello 3 (IP) quando i dati da trasmettere superano la *MTU* (Maximum Transmission Unit) della rete sottostante.
+
+#note[La MTU rappresenta la dimensione massima di un pacchetto che può essere trasmesso senza dover essere suddiviso]
+
+Se un pacchetto è più grande della MTU, viene frammentato in più parti, ciascuna con il proprio header IP.
+
+=== Processo di frammentazione
+
+Quando un pacchetto IP supera la MTU del collegamento in uso, viene suddiviso in più frammenti. Ogni frammento contiene:
+
+- Un header IP con informazioni specifiche sulla frammentazione.
+- Una porzione dei dati originali.
+
+=== Campi coinvolti nella frammentazione
+
+Rianalizziamo i campi che contiene l'header IPv4, specifici per la frammentazione:
+
+- *Total Length* (16 bit): Indica la lunghezza totale del pacchetto, inclusi header e dati.
+- *Identification* (16 bit) – Identifica univocamente il pacchetto originale, permettendo ai frammenti di essere riassemblati correttamente.
+- *Flags* (3 bit):
+  - D Bit (Don't Fragment, bit 1): Se impostato, impedisce la frammentazione. Se il pacchetto supera la MTU e DF è attivo, il pacchetto viene scartato e viene inviato un messaggio ICMP "Fragmentation Needed".
+  - M Bit (More Fragments, bit 2): Se impostato, indica che il pacchetto è stato frammentato e ci sono ulteriori frammenti in arrivo.
+- *Fragment Offset* (13 bit): Indica la posizione del frammento all'interno del pacchetto originale. *Il valore è espresso in multipli di 8 byte* (ottetti).
+
+=== Regole di frammentazione
+
+Il primo frammento ha sempre offset 0. *Gli offset devono essere multipli di 8*, poichè il campo Fragment Offset usa unità di 8 byte. tutti i frammenti tranne l'ultimo devono avere una dimensione che sia multipla di 8 byte. Infine l'ultimo frammento non ha l'M bit impostato e può avere una dimensione inferiore.
+
+#tip[
+
+=== Esempio di frammentazione
+
+Consideriamo un pacchetto originale di 7000B che attraversa due reti con diverse MTU.
+
+#align(center, image("images/image-41.png"))
+
+1. Token Ring LAN (MTU = 4000B)
+
+Il pacchetto viene frammentato in: 
+
+- Primo frammento: 3976B
+- Secondo frammento: 3024B
+
+2. Ethernet LAN (MTU = 1500B)
+
+I frammenti precedenti devono essere ulteriormente frammentati per adattarsi alla nuova MTU:
+
+- Il frammento da 4000B viene diviso in 3 sotto-frammenti:
+
+  - 1480B, offset 0
+  - 1480B, offset 185
+  - 1048B, offset 370
+
+- Il frammento da 3024B viene diviso in 3 sotto-frammenti:
+
+  - 1480B, offset 497
+  - 1016B, offset 682
+  - 528B, offset 813 (ultimo frammento, MF = 0)
+
+#important[Il valore di Fragment Offset è espresso in unità di 8 byte, quindi ad esempio un offset di 185 indica che il frammento inizia a 185 × 8 = 1480B dall'inizio del pacchetto originale.]
+]
+
+=== Riassemblaggio dei frammenti
+
+Quando i frammenti raggiungono il destinatario, vengono riassemblati utilizzando il campo Identification per raggrupparli e il Fragment Offset per riordinarli. Il processo di riassemblaggio avviene solo nel dispositivo finale, non nei router intermedi.
+
+== Il Ruolo degli Indirizzi IP
+
+L'indirizzo *IP* ha permesso di interconnettere reti preesistenti, consentendo la comunicazione tra dispositivi su scala globale. La gestione e l'assegnazione degli indirizzi IP è responsabilità dell'*ICANN* (Internet Corporation for Assigned Names and Numbers), che delega questa funzione ai registri regionali.
+
+Il livello 3 del modello OSI (Network Layer) è suddiviso in due sotto-livelli:
+
+1. *Network*: si occupa della gestione del traffico all'interno della rete.
+2. *IP*: si occupa della generazione e gestione degli indirizzi IP su tutta la rete.
+
+== Tecniche di indirizzamento
+
+Esistono cinque tecniche principali di assegnazione degli indirizzi IP:
+
+1. *Classi di Indirizzi IP*
+
+2. *Subnetting*
+
+3. *CIDR (Classless Inter-Domain Routing)*
+
+4. *NAT (Network Address Translation)*
+
+5. *IPv6*
+
+== Classi di Indirizzi IP
+
+L'indirizzamento IP inizialmente era organizzato in classi, suddividendo gli indirizzi in cinque categorie: `A`, `B`, `C`, `D`, `E`.
+
+#align(center, image("images/image-42.png"))
+
+#note[
+  Dot Notation degli Indirizzi IP
+
+Un indirizzo IP v4 è formato da 32 bit e viene scritto nella forma decimale puntata, detta *dot notation*, suddiviso in quattro blocchi (ottetti) da 8 bit ciascuno.
+
+Esempio:
+11000000 10101000 00000001 00000001 (binario) = 192.168.1.1 (decimale puntato).
+
+Ogni ottetto può variare da 00000000 (0 in decimale) a 11111111 (255 in decimale).
+Quindi un indirizzo IP può andare da 0.0.0.0 a 255.255.255.255.
+]
+
+Gli indirizzi IP di classe A (che vanno da `0.0.0.0` a `127.255.255.255`) sono caratterizzati da:
+
+- Primo bit uguale a 0, quindi l'intervallo di indirizzi va da 0.0.0.0 a 127.255.255.255.
+- Net ID (identificativo di rete): 7 bit.
+- Host ID (identificativo dell'host all'interno della rete): 24 bit.
+
+Quindi Il numero di reti disponibili in una classe A si calcola come $2^7$, dato che ci sono 7 bit per il net ID. Ci sono dunque 128 reti disponibili.
+
+Il numero di host per rete si calcola come $2^24$ poiché ci sono 24 bit per l'host ID.
+
+L'ultimo indirizzo di una classe `A` è `127.255.255.255` perché il primo bit è fissato a 0 e il massimo valore possibile negli altri 31 bit definisce l'ultimo indirizzo disponibile della classe.
+
+In egual modo si può ragionare per le altre classi, e in particolare: 
+
+- *Classe B*: Identificata dai primi due bit impostati a `10`.
+
+  - Intervallo: 128.0.0.0 - 191.255.255.255
+
+  - Numero di reti disponibili: 16.384 (2^14)
+
+  - Numero di host per rete: 65.534 (2^16 - 2)
+
+  - Struttura: 14 bit per il Net ID, 16 bit per l'Host ID
+
+  - Il primo ottetto varia da 128 a 191
+
+- *Classe C*: Identificata dai primi tre bit impostati a `110`.
+
+  - Intervallo: 192.0.0.0 - 223.255.255.255
+
+  - Numero di reti disponibili: 2.097.152 (2^21)
+
+  - Numero di host per rete: 254 (2^8 - 2)
+
+  - Struttura: 21 bit per il Net ID, 8 bit per l'Host ID
+
+  - Il primo ottetto varia da 192 a 223
+
+== Struttura dell'indirizzo IP
+
+Ogni rete su Internet è identificabile gerarchicamente tramite:
+
+- *Net ID*: identifica la rete.
+
+- *Host ID*: identifica il dispositivo all'interno della rete.
+
+Questo approccio facilita il routing: un router esamina solo il Net ID per determinare se il pacchetto deve essere instradato all'interno della rete locale o inviato a una rete esterna.
+
+Analizziamo un esempio:
+
+#tip[
+
+  #align(center, image("images/image-43.png"))
+
+  Un pacchetto che deve andare da `1` a `2`, viene interpretato dal router della rete `A` per capire dove instradare il pacchetto. Vengono quindi controllati il *Net Id* della stazione destinazione e sorgente:
+
+  - Se sono *uguali*: Allora l'uscota del pacchetto sarà nella stessa rete
+  - Se sono *diversi*: Non viene controllato l'*Host Id*, dato che il pacchetto è solo in transito, quindi si manda subito il pacchetto verso il gataway di uscita.7
+
+  Si può dire quindi che in primo luogo viene eseguito un *instradamento fra reti* (Net Id), poi, se serve, avviene l'*instradamento nella rete destinazione* (Host Id).
+]
+
+== Problemi delle Classi di indirizzi IP
+
+L'assegnazione fissa delle classi porta a problemi di inefficienza, come frammentazione esterna o interna ( troope reti con pochi host inutilizzati o reti troppo grandi rispetto alle necessità), o spreco di indidirizzi ( aziende ricevono classi A ma ne  usano una piccola porzione).
+
+Tutto questo ha portato ad una *scarsità di indirizzi IPv4 disponibili*. Per risolvere questi problemi, sono state introdotte nuove tecniche come il *Subnetting*.
+
+== Subnetting
+
+Il subnetting è una tecnica per suddividere una rete IP di grandi dimensioni (es. classe B) in sottoreti più piccole (subnet), introducendo un livello gerarchico aggiuntivo. Questo ottimizza la gestione degli indirizzi, riduce il traffico di broadcast e semplifica le tabelle di routing.
+
+#tip[
+Ipotizziamo che ci venga assegnato una classe `B`, e che l'amministratore di rete dedichi ad esempio `6 bit` dei 16 di host id per identificare $2^6$ sottoreti.
+
+A questo punto come fa un router ad identificare una sottorete?
+
+#align(center, image("images/image-44.png"))
+
+Un router determina la subnet di un host eseguendo un'operazione *AND bit a bit* tra l'indrizzo IP dell'host e la *subnet mask*. 
+
+La subnet mask definisce quali bit sono dedicati alla rete/subnet e quali agli host.
+
+]
+
+L'amministratore di rete decide il numero di subnet necessarie, calcola la subnet mask corrispondente e la configura su tutti i router della rete. 
+
+#note[
+  Notare come in questo caso la subnet mask è indicata con `/22`: questo va ad indicare che, sui 32 bit di IP, 22 (queli a 1) sono utilizzati per identificare la rete e la subnet, mentre i rimanenti (32-22, quelli a 0) sono utilizzati per identificare gli host.
+]
