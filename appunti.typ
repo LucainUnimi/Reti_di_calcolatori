@@ -1592,3 +1592,218 @@ Esiste un meccanismo chiamato Proxy ARP, usato quando un dispositivo deve raggiu
 - Il router, vedendo l’ARP Request per un IP esterno, risponde con il proprio MAC address, anche se l’IP richiesto appartiene a un’altra rete.
 - In questo modo, il mittente crede che l’IP di destinazione sia nella stessa LAN e invia i pacchetti al router, che poi li inoltra correttamente.
 - Proxy ARP è meno utilizzato oggi a causa della separazione più chiara tra reti e della diffusione del routing statico e dinamico.
+
+= Lezione 11
+
+== DHCP
+
+L'assegnazione degli indirizzi IP alle macchine all'interno di una LAN può avvenire in due modi:
+
+- *Assegnazione statica*: l'IP viene configurato manualmente su ogni macchina
+- *Assegnazione dinamica*: l'IP viene assegnato automaticamente da un server DHCP.
+
+L'assegnazione dinamica è gestita dal protocollo *DHCP* (Dynamic Host Configuration Protocol), definito nell’*RFC 2131*, che permette alle macchine di ottenere automaticamente un indirizzo IP e altre configurazioni di rete senza intervento manuale.
+
+#align(center, image("images/image-50.png"))
+
+Il server DHCP possiede un pool di indirizzi IP e li assegna dinamicamente alle macchine che ne fanno richiesta. Il server può essere integrato nel gateway (router) oppure essere una macchina dedicata. 
+
+#note[In reti grandi, possono esserci più server DHCP per garantire ridondanza e bilanciare il carico.]
+
+=== Come funziona il protocollo DHCP (DORA)
+
+Il protocollo DHCP si articola in 4 fasi principali, note con l'acronimo *DORA* (Discover, Offer, Request, Acknowledgment):
+
+#align(center, image("images/image-51.png"))
+
+1. Discover
+  - Il client non ha ancora un IP e vuole ottenerne uno. Invia un messaggio DHCP Discover in *broadcast* (destinato all’indirizzo `255.255.255.255`) per cercare un server DHCP.
+  - Indirizzo sorgente: `0.0.0.0` (perché il client non ha ancora un IP).
+  - Il client include un Transaction ID (*TID*) casuale per identificare la sua richiesta.
+  - Poiché il client non conosce l’indirizzo del server DHCP, il messaggio viene ricevuto da tutti i dispositivi della rete, inclusi eventuali server DHCP.
+
+#warning[Come associare la richiesta a un client specifico se l'IP sorgente è `0.0.0.0`?
+Il server usa il *MAC* address del client per identificarlo!]
+
+2. Offer
+  - I server DHCP che ricevono il messaggio rispondono con un *DHCP Offer*, contenente un IP disponibile.
+  - La risposta è ancora in *broadcast*, perché il client non ha ancora un IP assegnato.
+
+#note[*Check dell’indirizzo IP*: Prima di inviare l’Offer, il server DHCP verifica che l’IP proposto non sia già in uso.
+
+Per farlo, Invia un *ping ICMP* (Echo Request) all’IP proposto. Se non riceve risposta, considera l’indirizzo libero.]
+
+3. Request
+  - Se ci sono più server DHCP, il client deve scegliere un’offerta tra quelle ricevute.
+  - Il messaggio viene inviato in broadcast (`255.255.255.255`) per informare anche gli altri server DHCP che la scelta è stata fatta. includo quindi nel essaggio l'IP del server scelto.
+  - Gli altri server DHCP che avevano fatto un’offerta ritirano i loro indirizzi IP e li rimettono nel pool disponibile.
+
+#note[*ARP Check*: Il client può fare un controllo ARP per verificare che l’IP assegnato non sia già in uso.
+
+Invia un *ARP Request* per l’IP ricevuto. Se ottiene una risposta, significa che l’IP è già assegnato a un’altra macchina e richiede un nuovo indirizzo al DHCP.]
+
+4. ACK
+  - Il server scelto dal client risponde con un *DHCP Acknowledgment* (ACK) per confermare l’assegnazione dell’IP.
+  - Da questo momento, il client può usare l’IP assegnato per comunicare in rete.
+
+=== Rinnovo e Rilascio dell’IP
+
+Gli indirizzi IP assegnati dal DHCP non sono permanenti, ma hanno un *tempo di lease* (validità).
+
+Quando il 50% del lease è trascorso, il client tenta di rinnovarlo con un DHCP Request unicast al server. Se il server risponde con un DHCP ACK, il lease viene rinnovato. Se il server non risponde, il client riprova al 75% del lease. Se il lease scade senza risposta, il client perde l’IP e ripete l’intero processo DORA.
+
+=== Formato ICMP
+
+Abbiamo detto che il server, prima di fare una offer al client, esegue un check per controllare la validità dell'IP. Il check prevede che tramite *ICMP*, il server sia in grado di verificare se per caso quell'IP non sia già stato assegnato a qualcuno per errore. Con ICMP in pratica fa quindi un *ping* di quell' IP address, che prevede un eco nel caso i cui l'IP sia già raggiungibile.
+
+ICMP è quindi un modulo che sta dentro al livello 3 di ogni macchina e genera pacchetti che hanno di base un header e un messaggio. La cosa interessante è che è l'unico messaggio IP che fornisce una checksum del payload.
+
+ICMP ha una serie di compiti tra i queli la rilevazione degli errori, la verifica della raggiungibilità, il controllo della congestione, la misura delle prestazioni e l'indirizzamento delle sottoreti, ma non andremo nei dettagli durante la nostra trattazione.
+
+#align(center, image("images/image-52.png"))
+
+== Routing
+
+Nel livello 2 (Data Link Layer) i dispositivi di rete, come switch e bridge, utilizzano tabelle per associare porte di ingresso e uscita basandosi sugli indirizzi MAC. Tuttavia, questa metodologia è limitata alla trasmissione all'interno della stessa rete locale (LAN) e non consente di instradare pacchetti verso reti remote.
+
+Per superare queste limitazioni, il livello 3 (Network Layer) introduce il concetto di instradamento (*routing*), che permette di determinare il miglior percorso per raggiungere una destinazione che può essere situata anche a grande distanza.
+
+#align(center, image("images/image-53.png", width: 10cm))
+
+=== Fowarding vs Routing
+
+- *Forwarding*: Processo che avviene nei router per inoltrare pacchetti in base alle informazioni contenute nella tabella di routing
+- *Routing*: Processo che permette di popolare dinamicamente la tabella di routing tramite protocolli specifici, *apprendendo la topologia della rete*.
+
+A differenza del forwarding di livello 2, che si basa sull'adiacenza fisica, il routing di livello 3 offre una *visibilità più ampia* della rete e permette di determinare percorsi *ottimali* attraverso diversi nodi intermedi.
+
+=== Tabella di routing
+
+La tabella di routing (Routing Table) contiene le informazioni necessarie per instradare i pacchetti verso la destinazione corretta. Rispetto alla forwarding table di livello 2, essa include tutte le possibili destinazioni raggiungibili all'interno della rete.
+
+Le voci tipiche della tabella di routing includono:
+
+- Destinazione (IP di rete o host specifico)
+
+- Miglior next-hop (router o gateway verso cui inoltrare il pacchetto)
+
+- Interfaccia di uscita
+
+- Metrica (distanza o costo del percorso)
+
+- Protocollo di routing utilizzato
+
+Come posso catturare le caratteristiche della rete?
+
+== Distance vector
+
+Il protocollo *Distance Vector* è una tecnica di routing in cui ogni nodo della rete mantiene una *tabella delle adiacenze* e aggiorna la propria conoscenza della rete basandosi sulle informazioni ricevute dai nodi vicini.
+
+=== Costruzione della conoscenza della rete
+
+Ogni nodo della rete, costruisce la propria tabella delle adiacenze  basata sui collegamenti diretti. Poi trasmette *periodicamente* il proprio distance vectore ai nodi vicini. Infine, riceve e utilizza i distance vector dei vicini per aggiornare la propria tabella di routing.
+
+Questo meccanismo consente a ciascun nodo di passare da una conoscenza locale della rete a una conoscenza globale, sebbene in modo graduale e iterativo.
+
+#tip[
+
+Analizziamo ad esempio la seguente topologia di rete:
+
+#align(center, image("images/image-54.png", width: 18cm))
+
+inizialmente i nodi si genereranno delle tabelle di adiacenza di questo tipo:
+
+#align(center, image("images/image-55.png", width: 12cm))
+
+Dopo aver mandato e ricevuto i distance vector, ad esempio la tabella del nodo A diventa la seguente:
+
+#align(center, image("images/image-56.png", width: 6cm))
+
+Possiamo notare quindi come inizialmente la conoscenza della rete di `A` sia limitata, ma man mano che riceve i distance vector riesce a popolare la propria tabella.]
+
+#note[Il distance vector contiene delle coppie `nodo adiacente - costo per raggiungerlo`. Essendo che con questa tecnica un nodo conosce altri nodi della rete solo attraverso i distance vectore mandati, ogni nodo conosce solo IP e costo per raggiungerli, ma non sa nulla riguardo al link usato!]
+
+=== RIP (Routing Information Protocol)
+
+RIP è un protocollo di routing basato su Distance Vector che utilizza *aggiornamenti periodici* per diffondere le informazioni di rete. Per migliorare la velocità di convergenza, RIP utilizza:
+
+- *Triggered Update*: un meccanismo che consente di inviare aggiornamenti immediati in risposta a variazioni della rete, come il guasto di un collegamento.
+- *Scambio iniziale di Distance Vector*: al momento dell’avvio, ogni nodo trasmette il proprio Distance Vector per costruire progressivamente la visione globale della rete.
+
+#note[Normalmente, nel protocollo Distance Vector (DV) senza ottimizzazioni, i nodi aggiornano e propagano il loro Distance Vector solo durante gli aggiornamenti periodici, che avvengono a intervalli regolari (es. ogni 30 secondi in RIP).]
+
+=== Problemi del distance vector
+
+L'invio e la ricezione dei distance vector, e gli aggiornamenti delle tabelle di adiacenza dei nodi della rete, avvengono in maniera asincrona, e possono essere persi, rallentando la convergenza della rete.
+
+Questo comporta la presenza di due problematiche: *Bouncing Effect* e *Count to Infinity*.
+
+==== Bouncing Effect
+
+Il problema nasce perché i nodi continuano a scambiarsi informazioni obsolete prima che la rete possa stabilizzarsi.
+Si verifica una propagazione errata dell'informazione, che porta i costi a crescere fino a un valore elevato (tipicamente 16 in RIP, valore che indica inaccessibilità).
+
+Consideriamo la seguende rete:
+
+#align(center, image("images/image-57.png", width: 10cm))
+
+Sulla destra troviamo evidenziati i percorsi che i nodi fanno verso il nodo `C` in un dterminato momento $t_0$.
+
+- Il nodo `B`, rileva un guasto nel collegamento diretto con `C` ($t_1$)
+- `B` aggiorna la sua tabella, eliminando il percorso diretto verso `C`.
+- `B` annuncia ai suoi vicini (A e D) che non può più raggiungere C.
+- Tuttavia, `A`, che in precedenza raggiungeva `C` tramite `B`, non ha ancora ricevuto un aggiornamento coerente e continua a pubblicizzare un percorso verso `C` con costo 2.
+- `B`, ricevendo questa informazione da `A`, aggiorna erroneamente la sua tabella e ripristina il percorso verso `C`, passando proprio per `A`, con un costo aumentato.
+- Questo innesca una serie di aggiornamenti errati, causando un rimbalzo del valore del costo (*Bouncing Effect*), che porta al problema del *Count to Infinity*.
+
+Il problema nasce dal fatto che *i timer di aggiornamento sono asincroni* e le informazioni contenute nei Distance Vector possono essere obsolete o inconsistenti. Poiché la trasmissione avviene in modalità *Best Effort*, i pacchetti possono arrivare in ritardo o andare persi, causando una propagazione errata dell’informazione.
+
+==== Count To infinity
+
+Il Count to Infinity è un problema tipico del Distance Vector, che si verifica quando un nodo non si rende conto immediatamente che una destinazione è irraggiungibile e continua ad aggiornare il costo in maniera incrementale, causando un aumento progressivo fino a raggiungere un valore massimo (tipicamente un valore arbitrario di infinito, come 16 in RIP).
+
+Analizziamo la seguente rete formata da 4 nodi collegati in una topologia lineare:
+
+#align(center, image("images/image-58.png", width: 10cm))
+
+- Il collegamento tra `A` e `B` si rompe.
+- `B` rileva che `A` non è più raggiungibile e dovrebbe impostare la distanza verso `A` a infinito.
+- Tuttavia, prima che `B` possa diffondere questa informazione, `C` e `D` possiedono ancora una vecchia entry in cui `A` è raggiungibile.
+- `C`, che conosceva `A` tramite `B`, pubblicizza ancora un percorso verso `A` con costo 2.
+- `B`, ricevendo questa informazione, aggiorna erroneamente la sua tabella credendo di poter raggiungere `A` tramite `C` con costo 3.
+- Questo aggiornamento si propaga nuovamente a `C`, che aggiorna il proprio costo per `A` a 4, e così via, causando un incremento infinito del costo.
+
+=== Soluzioni: Triggered Updates e Split Horizon
+
+==== Triggered Updates
+
+I *triggered updates* sono aggiornamenti immediati della tabella di instradamento, inviati non appena viene rilevato un cambiamento critico, come la rottura di un collegamento.
+
+==== Split Horizon
+
+Lo Split Horizon è una tecnica che evita di pubblicizzare una rotta a un vicino se quella rotta è stata appresa proprio da quel vicino. L'idea di base è:
+
+*"Se ho appreso un percorso da te, non ha senso che te lo restituisca, perché significherebbe che sei tu stesso il mio unico accesso a quella destinazione."*
+
+Vediamo un esempio
+
+#align(center, image("images/image-59.png", width: 8cm))
+
+Nell'immagine, vediamo il nodo C che segue questa logica:
+
+- Prima del guasto, `C` raggiungeva `A` passando per `B` con un costo di 2.
+- Dopo il guasto, `B` aggiorna il suo costo per `A` a infinito e propaga questa informazione.
+- `C` non propaga a `B` il proprio Distance Vector con il costo per `A`, perché sa che `B` era la sua unica via per raggiungere `A`. Verso `B`, manda subito un costo infinito per `A` 
+- Verso `D`, mantiene invece il costo originale (2) perché `D` non era coinvolto direttamente nel problema.
+
+#tip[
+  Il punto è che ogni nodo `x` sa che i nodi che usa per raggiungere un nodo `y` non possono  aumentare la loro distanza da `y`, quindi quando riceve un infinito rimanda un infinito e dall'altra parte mantiene il costo di prima.
+]
+
+=== Limiti di RIP
+
+Nonostante gli accorgimenti come *Triggered Update* e *Split Horizon*, RIP presenta limitazioni significative:
+
+1. È inefficiente su reti di grandi dimensioni a causa della lenta convergenza e del problema del Count to Infinity.
+2. Converge verso una soluzione anche quando la rete non è in condizioni ottimali.
+3. Per superare queste limitazioni, è necessario utilizzare protocolli più avanzati, come *OSPF* (Open Shortest Path First), basato su Link State, o *BGP* (Border Gateway Protocol) per reti di grandi dimensioni e interconnessioni globali.
