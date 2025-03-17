@@ -1376,3 +1376,219 @@ L'amministratore di rete decide il numero di subnet necessarie, calcola la subne
 #note[
   Notare come in questo caso la subnet mask è indicata con `/22`: questo va ad indicare che, sui 32 bit di IP, 22 (queli a 1) sono utilizzati per identificare la rete e la subnet, mentre i rimanenti (32-22, quelli a 0) sono utilizzati per identificare gli host.
 ]
+
+= Lezione 10
+
+== CIDR
+
+*CIDR* (Classless Inter-Domain Routing) è stato introdotto per ottimizzare l'uso degli indirizzi IPv4 e rallentare l'esaurimento dello spazio disponibile. A differenza del precedente schema basato su classi (A, B, C), CIDR consente di assegnare blocchi di indirizzi in base alle reali necessità degli operatori di rete, riducendo lo spreco di IP e migliorando l'efficienza del routing.
+
+=== Struttura e Assegnazione CIDR
+
+Con CIDR, gli indirizzi IP vengono assegnati in blocchi variabili, identificati da una notazione speciale: `P_ADDRESS/SUBNET_MASK`.
+
+Dove `SUBNET_MASK` rappresenta il numero di bit utilizzati per identificare la rete. Ad esempio, 192.168.1.0/24 indica che i primi 24 bit sono riservati per la rete, lasciando gli ultimi 8 bit per gli host (256 indirizzi possibili).
+
+=== Assegnazione degli indirizzi IP in base ai continenti
+
+CIDR assegna gruppi di indirizzi IP in base ai continenti. L'ente IANA suddivide lo spazio disponibile tra i cinque RIR (Regional Internet Registry), ognuno responsabile della distribuzione all'interno della propria area geografica.
+
+Ad esempio, RIPE NCC gestisce l'allocazione degli IP in Europa, suddividendo gli spazi tra i vari stati e operatori di rete.
+
+=== Allocazione di Indirizzi: Esempio di Milano
+
+Supponiamo che un'organizzazione di Milano richieda 2048 indirizzi IP. Un blocco compatibile potrebbe essere `194.24.0.0` fino a `194.24.7.255`.
+
+- Ogni subnet contiene 256 indirizzi (8 bit liberi per gli host).
+- Per ottenere 2048 indirizzi servono 8 subnet, ovvero 2^3 = 8, quindi bisogna lasciare 3 bit liberi per identificare questi blocchi.
+- La maschera di rete corrispondente sarà /21, ovvero 21 bit riservati alla rete e 11 agli host.
+
+La maschera di rete per `194.24.0.0/21` è: `255.255.248.0`
+
+- I primi 21 bit sono settati a 1, lasciando 11 bit per gli host.
+- 248 in binario è `11111000`, quindi lascia liberi 3 bit per rappresentare subnet da 2048 indirizzi.
+
+
+
+#tip[
+  Analizziamo degli esercizi per comprendere come CIDR ottimizza l'allocazione e la gestione degli indirizzi IP.
+
+  *Domanda*: Un'azienda necessita di `4000` indirizzi IP. Qual è la maschera CIDR minima necessaria?
+
+  *Risposta*: 
+  - Il numero di host richiesti è `4000`. Il numero più vicino in potenza di 2 è `4096` (2^12).
+  - Sono necessari 12 bit per gli host, quindi la subnet mask sarà `/20`.
+  - La subnet mask in decimale è `255.255.240.0`.
+
+  *Domanda*: Dato il blocco `10.10.32.0/20`, quali sono il primo e l'ultimo indirizzo disponibile? 
+
+  *Risposta*: 
+  - La maschera `/20` lascia 12 bit per gli host, quindi il numero di indirizzi è 2^12 = `4096`.
+  - L'intervallo è da `10.10.32.0` a `10.10.47.255`
+  - *Primo indirizzo utilizzabile*: 10.10.32.1
+  - *Ultimo indirizzo utilizzabile*: 10.10.47.254
+
+  *Domanda*: Un `ISP` assegna l'intervallo `172.16.64.0/22`. L'indirizzo `172.16.66.25` appartiene a questa rete?
+
+  *Risposta*: 
+  - La maschera `/22` lascia 10 bit per gli host, quindi il range va da `172.16.64.0` a `172.16.67.255`.
+  - `172.16.66.25` è compreso in questo intervallo, quindi l'IP appartiene alla subnet.
+]
+
+Questa soluzione allunga la vita a IPv4, ma non determina la sua eternità. Ma come fanno allora alcune reti a funzionare ancora grazie ad IPv4?
+
+== NAT (Network Address Translation)
+
+L'adozione di *NAT* (Network Address Translation) ha contribuito significativamente a prolungare la vita di IPv4, *pur non rendendolo eterno*. Molte reti continuano a funzionare con IPv4 grazie a NAT, che consente una gestione ottimizzata degli indirizzi IP.
+
+=== Cos'è il NAT e a cosa serve?
+
+NAT è una tecnologia che permette di tradurre gli indirizzi IP privati in un indirizzo IP pubblico e viceversa. Questo meccanismo consente di ottimizzare l'uso degli indirizzi IPv4 disponibili, proteggere la rete privata dall'accesso diretto all'esterno e separare lo spazio degli indirizzi pubblici da quello privato.
+
+=== Struttura del NAT
+
+In una rete *privata*, è possibile assegnare ai dispositivi *indirizzi IP privati*, che non sono visibili su Internet. Un dispositivo NAT, tipicamente un router, possiede un unico indirizzo IP pubblico e funge da intermediario tra la rete privata e il mondo esterno. Gli indirizzi IP privati utilizzabili in una rete interna appartengono ai seguenti intervalli riservati:
+
+- 10.0.0.0/8
+- 172.16.0.0/12
+- 192.168.0.0/16
+
+#note[Questi indirizzi possono essere riutilizzati in più reti senza causare conflitti, poiché il traffico di rete privata non è instradabile su Internet.]
+
+=== Funzionamento del NAT
+
+Quando un dispositivo all'interno della rete privata invia una richiesta a un server su Internet:
+
+1. Il pacchetto viene intercettato dal NAT.
+2. Il NAT sostituisce l'indirizzo IP sorgente del dispositivo privato con il proprio indirizzo IP pubblico.
+3. Il pacchetto viene inoltrato al server di destinazione.
+
+Alla ricezione della risposta da parte del server:
+
+1. Il NAT intercetta il pacchetto in ingresso.
+2. Utilizzando una *tabella di associazione*, il NAT sostituisce l'indirizzo IP di destinazione con quello del dispositivo privato corrispondente.
+3. Il pacchetto viene inoltrato al dispositivo all'interno della rete privata.
+
+#align(center, image("images/image-45.png"))
+
+=== Problema della gestione delle risposte
+
+Il NAT tradizionale permette di inviare richieste all'esterno, ma inizialmente non gestisce correttamente le risposte perché i dispositivi interni utilizzano indirizzi IP privati, che non sono direttamente raggiungibili da Internet. Quando un server su Internet invia una risposta, essa è indirizzata all'IP pubblico del NAT, che però non può sapere a quale dispositivo interno restituire il pacchetto senza un meccanismo di associazione. Per risolvere questa limitazione, si introduce una tabella di associazione con i seguenti campi:
+
+#align(center, image("images/image-46.png"))
+
+Quando un dispositivo interno invia una richiesta:
+
+- Il NAT registra nella tabella l’indirizzo IP privato, la porta sorgente e il corrispondente indirizzo pubblico con una porta temporanea univoca (Port Address Translation - PAT).
+- Quando la risposta arriva all’indirizzo pubblico e alla porta assegnata, il NAT consulta la tabella e reindirizza il pacchetto al dispositivo interno corretto.
+
+=== Violazione del modello OSI: il NAT e la manipolazione dei livelli
+
+Il NAT introduce un'anomalia rispetto alla struttura a livelli del modello OSI:
+
+- Il modello OSI prevede una chiara separazione tra i livelli (ad es. il livello di rete non dovrebbe interagire con il livello di trasporto).
+- Il NAT, tuttavia, deve modificare informazioni sia nel livello 3 (IP) che nel livello 4 (TCP/UDP), sostituendo non solo gli indirizzi IP, ma anche i numeri di porta.
+- Questa "sporcizia" architetturale è necessaria per consentire il funzionamento del NAT, anche se rompe il principio di astrazione tra i livelli.
+
+=== Lavoro del NAT su ogni pacchetto
+
+Ogni pacchetto che passa attraverso il NAT subisce le seguenti modifiche:
+
+1. Livello IP (Livello 3):
+  - Il NAT sostituisce l'indirizzo IP sorgente con l'IP pubblico della rete
+2. Livello di Trasporto (Livello 4 - TCP/UDP)
+  - Il NAT sostituisce il numero di porta sorgente con un numero univoco scelto dal router.
+3. Tabella di mappatura:
+  - Il NAT registra l'associazione tra IP e porta privata e IP e porta pubblica
+
+#warning[il numero di porta utilizzato da un dispositivo privato potrebbe non essere univoco tra reti diverse]
+
+Il NAT assegna dinamicamente una *porta NAT univoca*. Questo processo permette di mantenere le connessioni attive e garantisce il corretto instradamento dei pacchetti di risposta.
+
+#align(center, image("images/image-47.png"))
+
+=== NAT e server accessibili dall'esterno
+
+Se si desidera esporre un server interno su Internet, esistono due soluzioni:
+
+1. Assegnare un indirizzo IP pubblico statico al server, rendendolo direttamente accessibile.
+2. Utilizzare il *Port Forwarding* (o Destination NAT - DNAT): il NAT inoltra il traffico in arrivo su una specifica porta dell'IP pubblico a un IP privato interno
+
+#tip[*Esempio*: per rendere un server web accessibile dall'esterno, si configura il NAT affinché tutto il traffico destinato all'IP pubblico sulla porta 80 venga inoltrato all'IP privato del server web.]
+
+=== Conclusioni
+
+Il NAT è una soluzione fondamentale per la gestione delle reti IPv4, permettendo di superare le limitazioni degli indirizzi IP pubblici e migliorando la sicurezza delle reti private. Tuttavia, introduce una complessità nella gestione delle connessioni e comporta una violazione della separazione dei livelli del modello OSI. Nonostante ciò, il NAT rimane una delle tecnologie chiave per il funzionamento delle reti moderne basate su IPv4.
+
+== ARP (Address Resolution Protocol) 
+
+L’Address Resolution Protocol (*ARP*) è un protocollo di livello Network (Livello 3 OSI) che consente di determinare l’indirizzo MAC (Media Access Control, livello 2) associato a un dato indirizzo IP.
+
+Quando un dispositivo in una rete locale (LAN) deve inviare un pacchetto a un altro dispositivo, conosce il suo indirizzo IP ma ha bisogno dell’indirizzo MAC per poter effettivamente inviare il frame Ethernet.
+
+=== Come risolve un IP in un MAC address?
+
+Il dispositivo sorgente invia una richiesta ARP (*ARP Request*) in broadcast sulla rete, chiedendo "Chi ha l’indirizzo IP X.X.X.X? Rispondi con il tuo indirizzo MAC".
+
+Il dispositivo destinatario, se presente nella LAN, risponde con un messaggio *ARP Reply* in *unicast*, fornendo il proprio MAC address.
+
+Il mittente aggiorna la propria *tabella ARP* con l’associazione IP-MAC ricevuta, in modo da poter inviare direttamente i successivi pacchetti senza dover ripetere la risoluzione ARP.
+
+=== Funzionamento dettagliato di ARP
+
+Ogni macchina di una LAN ha un modulo ARP che si occupa della gestione delle richieste e delle risposte.
+
+1. Verifica della cache ARP
+  - Prima di inviare un pacchetto, il dispositivo controlla se ha già il MAC address dell’IP di destinazione nella sua cache ARP.
+  - Se l’entry esiste ed è valida, il dispositivo può inviare direttamente il frame
+  - Se non esiste, o è scaduta, si procede con una ARP Request.
+2. Invio dell’ARP Request
+  - Il dispositivo sorgente crea un pacchetto ARP Request e lo invia in broadcast (MAC di destinazione: FF:FF:FF:FF:FF:FF).
+  - Il pacchetto contiene IP e MAC mittente e IP del destinatario.
+3. Risposta con ARP Reply
+  - Il dispositivo con l’IP richiesto riceve l’ARP Request e risponde con un ARP Reply in unicast, includendo il proprio MAC address.
+  - Il mittente aggiorna la sua cache ARP e utilizza l’indirizzo MAC ricevuto per la trasmissione dei pacchetti successivi
+4. Cache ARP e TTL
+  - Le associazioni IP-MAC apprese vengono memorizzate nella cache ARP per un certo periodo di tempo (TTL – Time to Live).
+  - Questo evita di dover ripetere continuamente richieste ARP per dispositivi con cui si comunica frequentemente.
+
+=== Formato del pacchetto ARP
+
+Un pacchetto ARP è incapsulato direttamente in un frame Ethernet, con *EtherType 0x0806* (ARP).
+
+#align(center, image("images/image-48.png"))
+
+=== ARP su reti diverse: il ruolo del router (Gateway)
+
+#warning[Quando la destinazione è all’*esterno della LAN*, un’ARP Request tradizionale non riceverebbe risposta, perché i pacchetti broadcast non vengono inoltrati tra reti diverse.]
+
+Come si risolve il problema?
+
+1. Calcolo del Net ID
+  - La macchina esegue un AND bit a bit tra il proprio IP e la Subnet Mask, ottenendo il suo Net ID.
+  - Fa lo stesso con l’IP di destinazione.
+2. Confronto dei Net ID
+  - *Se i Net ID coincidono*: la destinazione è nella stessa LAN, può inviare il pacchetto direttamente.
+  - *Se i Net ID sono diversi*: la destinazione è fuori dalla LAN, quindi il pacchetto deve passare attraverso il gateway (router).
+3. Entra in gioco il gateway
+  - *Se i Net ID sono diversi*, il pacchetto non può essere inviato direttamente al destinatario.
+  - invece di fare un'ARP Request per la destinazione, la macchina sorgente fa un'ARP Request per il gateway predefinito.
+4. Risoluzione dell’IP del gateway in un MAC
+  - Se *il MAC del gateway predefinito è già noto* (cache ARP), il pacchetto viene subito incapsulato in una trama Ethernet e inviato al router.
+  - Se *il MAC del gateway predefinito non è noto*, il dispositivo invia una ARP Request chiedendo: "Chi ha l’IP del gateway? Rispondi con il tuo MAC!"
+  - Il router risponde con una ARP Reply, fornendo il suo MAC.
+5. Invio del pacchetto al router
+  - Il dispositivo sorgente incapsula il pacchetto IP in un frame Ethernet, usando:
+    - *MAC sorgente* = suo MAC
+    - *MAC destinazione* = MAC del gateway
+  - Il router riceve il pacchetto e si occupa di inoltrarlo verso la rete di destinazione.
+
+#align(center, image("images/image-49.png", width: 10cm))
+
+=== Proxy ARP
+
+Esiste un meccanismo chiamato Proxy ARP, usato quando un dispositivo deve raggiungere una destinazione fuori dalla LAN, ma non sa che deve passare per un router.
+
+- Il router, vedendo l’ARP Request per un IP esterno, risponde con il proprio MAC address, anche se l’IP richiesto appartiene a un’altra rete.
+- In questo modo, il mittente crede che l’IP di destinazione sia nella stessa LAN e invia i pacchetti al router, che poi li inoltra correttamente.
+- Proxy ARP è meno utilizzato oggi a causa della separazione più chiara tra reti e della diffusione del routing statico e dinamico.
