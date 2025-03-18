@@ -1810,7 +1810,188 @@ Nonostante gli accorgimenti come *Triggered Update* e *Split Horizon*, RIP prese
 
 = Lezione 12
 
-Soluzioni come triggered update e split horizon, a volte non funzionano.
+#tip[
+L'esempio fornito di seguito, illustra una situazione in cui triggered update e split horizon non riescono a prevenire completamente il bouncing effect (count to infinity). 
 
-Vediamo un esempio:
+#align(center, image("images/image-60.png", width: 8cm) )
+
+*Scenario di errore*:
+
+- Il collegamento tra `B` e `C` si interrompe.
+- `B` rileva l'interruzione e aggiorna il suo Distance Vector (DV) per `C` a infinito (∞).
+- `B` invia un Triggered Update ai suoi vicini (`A` e `D`) informandoli che `C` è irraggiungibile.
+- *Supponiamo che l'aggiornamento di `B` a `D` vada perso*. `D` non sa che `C` è irraggiungibile.
+- `D` ha ancora nel suo DV che il costo per `C` è 4 (attraverso `B`).
+- `D` invia il suo DV a `E`. `E` apprende che `D` può raggiungere `C` con costo 4.
+- `E` invia il suo DV a `C`. `C` apprende che `E` può raggiungere `C` con costo 4+1 = 5.
+- `C` invia il suo DV a `B`. `B` apprende che `C` può essere raggiunto con costo 5.
+- `B` aggiorna il suo DV per `C` a 6 (1 + 5).
+- `B` invia un Triggered Update ai suoi vicini.
+- *Questo processo continua*, con il costo per raggiungere `C` che aumenta ad ogni scambio di DV, fino a raggiungere l'infinito (Count to Infinity).
+]
+
+Perchè Triggered Update e Split Horizon non bastano?
+
+- *Aggiornamento perso*: L'aggiornamento di `B` a `D` è stato perso, impedendo a `D` di aggiornare il suo DV.
+- *Split Horizon non applicabile*: Split Horizon impedisce a `B` di inviare informazioni su `C` ad `A` (da cui l'ha appresa), ma non impedisce a `D` di inviare informazioni errate a `E`.
+
+#note[Questo esempio dimostra che, in determinate situazioni, la perdita di aggiornamenti e la limitata applicabilità di Split Horizon possono portare a errori di routing anche con l'uso di Triggered Update.]
+
+Il protocollo RIP può essere usato su reti periferiche, ma non viene utilizzato nel core di internet, su reti di grandi dimensioni.
+
+Come è possibile uscire dall'inefficienza di RIP e costruire delle tabelle di routing che convergono sempre rapidamente verso la reale situazione della rete?
+
+== Link state
+
+Il protocollo *Link State* è una tecnica di instradamento adottata dalla maggior parte delle reti moderne, poiché risolve molte delle problematiche associate ai protocolli basati su *Distance Vector*.
+
+=== Funzionamento del Link State
+
+Nel protocollo Link State, ogni nodo della rete esegue le seguenti operazioni:
+
+1. *Scoperta dei vicini*: utilizza pacchetti HELLO per identificare i router adiacenti.
+2. *Propagazione delle informazioni di stato del link*: ogni nodo genera un Link State Advertisement (*LSA*) contenente le informazioni sui propri collegamenti e lo propaga in modalità *flooding* a tutta la rete. 
+3. *Creazione della topologia di rete*: ciascun nodo, raccogliendo tutti i LSA ricevuti, costruisce una mappa completa della rete.
+4. *Calcolo del cammino minimo*: applica l'algoritmo di *Dijkstra* per determinare il percorso più breve verso ogni destinazione.
+
+#align(center, image("images/image-61.png", width: 8cm))
+
+=== Vantaggi del link state
+
+L'adozione di Link State porta con sè alcuni vantaggi fondamentali. In primis *ogni nodo ha una visione completa della topologia*, eliminando il problema del count to infinity. Poi, si ha un generale miglioramento nella selezione del percorso, poichè ogni ruoter, grazie all'uso dell'algoritmo di Dijkstra, calcola il cammino minimo in modo indipendente. Infinie, si hanno aggiornamenti più rapidi, poichè la propagazione delle informazioni avviene tramite *flooding controllato*, riducendo i ritardi di convergenza.
+
+#align(center, image("images/image-62.png", width: 8cm))
+
+#align(center, image("images/image-63.png", width: 12cm))
+
+=== Costi e considerazioni
+
+#warning[
+L'adozione del Link State comporta alcuni costi
+]
+
+- *Overhead di rete*: la propagazione dei LSA in modalità flooding genera un traffico significativo, soprattutto in reti di grandi dimensioni.
+- *Carico computazionale*: ogni nodo deve eseguire l'algoritmo di Dijkstra per calcolare le rotte, aumentando l'utilizzo delle risorse di calcolo.
+- *Gestione degli aggiornamenti*: per evitare duplicazioni o loop, ogni LSA include un numero di sequenza che consente ai router di identificare e scartare messaggi già ricevuti.
+
+== OSPF: Implementazione del Link State
+
+Uno dei protocolli più diffusi basati su Link State è *OSPF* (Open Shortest Path First). Le caratteristiche principali di OSPF includono:
+
+1. *Strutturazione gerarchica*: suddivisione della rete in aree per ridurre il traffico di aggiornamento.
+2. *Utilizzo di metriche avanzate*: calcolo dei costi basato sulla latenza, larghezza di banda e altre metriche.
+3. *Supporto per il bilanciamento del carico*: possibilità di instradare il traffico su *percorsi multipli* con lo stesso costo.
+
+=== Misurazione dei costi di rete
+
+Per determinare il costo dei link, i protocolli Link State possono utilizzare pacchetti *ICMP* (Internet Control Message Protocol) per misurare metriche come latenza e perdita di pacchetti.
+
+=== Ottimizzazione del traffico di controllo
+
+Poiché il traffico di controllo può diventare significativo, si adottano diverse strategie per mitigarne l'impatto:
+
+- *Riduzione della frequenza degli aggiornamenti*: invio di LSA solo quando cambia la topologia, anziché a intervalli fissi.
+- *Aggregazione delle informazioni*: utilizzo di aree OSPF per limitare la propagazione delle informazioni.
+- *Meccanismi di conferma*: uso di messaggi di ACK per evitare la trasmissione ridondante di LSA.
+
+== Funzionamento di internet ad oggi
+
+#tip[
+  Riassumiamo in breve come funziona una rete al giorno d'oggi.
+
+  Consideriamo la seguente topologia:
+
+  #align(center, image("images/image-64.png", width: 10cm))
+
+  #align(center, image("images/image-65.png", width: 10cm))
+
+  1. *Tabella di routing*
+    - Ogni router costruisce una tabella di routing utilizzando l'algoritmo Shortest Path First (*SPF*).
+    - La tabella indica il percorso migliore (con il costo più basso) per raggiungere ogni destinazione.
+    - Nell'esempio, la tabella di routing di R1 mostra i costi per raggiungere R2, R3 e R4.
+  2. *Tabella di Adiacenza*
+    - Ogni router utilizza il protocollo *ICMP* (Internet Control Message Protocol) e i messaggi echo per scoprire i suoi vicini (router adiacenti).
+    - La tabella di adiacenza di R1 elenca i router direttamente connessi (R2, R4 e G1) e le porte utilizzate per raggiungerli.
+  3. *Tabella Net ID*
+    - Ogni router è in grado di identificare i Net ID (identificatori di rete) raggiungibili attraverso i diversi router.
+    - Le informazioni sui Net ID e sui costi per raggiungerli sono propagate attraverso i link-state advertisements (LSA).
+    - I router hanno anche il costo per raggiungere le reti foglia (stub) come G1
+
+  Come avviene la gestione dei pacchetti e il ruoting?
+
+  1. *Analisi del apcchetto*
+    - Quando un pacchetto arriva a un router, viene analizzato l'indirizzo di destinazione per identificare il Net ID.
+  2. *Ricerca nella Tabella di Routing*
+    - Il router cerca il Net ID nella sua tabella di routing per determinare il percorso migliore.
+  3. *Inoltro del Pacchetto*
+    - Il pacchetto viene inoltrato al router successivo lungo il percorso indicato nella tabella di routing
+    - Ogni router aggiorna il percorso quando il pacchetto arriva.
+  
+  Analizziamo infine i vantaggi e i costi di OSPF
+
+  OSPF offre una maggiore efficienza nell'utilizzo dei canali della rete. Inoltre Consente di implementare il source routing, in cui il mittente specifica il percorso che il pacchetto deve seguire.
+
+  D'altra parte OSPF richiede una maggiore quantità di risorse di rete (CPU, memoria, larghezza di banda) rispetto al distance vector, e Il flooding (l'invio di LSA a tutti i router) può generare un elevato traffico di rete.
+]
+
+#note[
+  *Multipath*: OSPF è in grado di identificare percorsi alternativi con lo stesso costo, consentendo di bilanciare il traffico e migliorare la resilienza della rete.
+]
+
+== Struttura e funzionamento di una rete OSPF
+
+Open Shortest Path First (*OSPF*) è un protocollo di routing link-state utilizzato per il routing all'interno di un *Autonomous System* (AS). Ogni rete OSPF è suddivisa in *aree*, che rappresentano insiemi di dispositivi interconnessi con una topologia arbitraria. Tuttavia, l'organizzazione complessiva della rete segue una *struttura a stella*, in cui tutte le aree devono essere collegate a un'area centrale, nota come *Area 0* (o Backbone Area).
+
+L'Area 0 funge da ossatura della rete OSPF, consentendo la comunicazione tra le altre aree. Ogni area non backbone può utilizzare *OSPF* o altri protocolli di routing, come *RIP*, per la gestione del traffico locale, ma tutte le comunicazioni tra aree diverse devono passare attraverso la Backbone Area.
+
+#align(center, image("images/image-66.png"))
+
+== Comunicazione tra Autonomous System
+
+Gli *Autonomous System* (AS) sono reti di grandi dimensioni sotto un'unica amministrazione, ciascuna delle quali può adottare il proprio protocollo di routing interno. Per consentire la comunicazione tra diversi AS, ogni AS dispone di almeno un *Border Router*, che funge da punto di interconnessione tra l'AS e la Backbone Area. Questi Border Router sono rigorosamente collegati alla Backbone Area per garantire un routing efficiente tra le reti.
+
+Per il routing tra Autonomous System si utilizza il Border Gateway Protocol (*BGP*), un protocollo di routing esterno (Exterior Gateway Protocol, EGP) che permette lo scambio di informazioni di instradamento tra AS distinti.
+
+== Riepilogo delle tecnologie di routing
+
+- *OSPF* viene utilizzato all'interno delle aree, inclusa l'Area 0 (Backbone Area), a eccezione delle aree che adottano altri protocolli di routing come RIP.
+- *BGP* viene impiegato per il routing tra Autonomous System, consentendo la comunicazione tra reti di amministrazioni diverse.
+
+== Designated Router e Ottimizzazione del Routing
+
+Nelle reti tradizionali basate su OSPF (Open Shortest Path First), uno dei metodi per semplificare la complessità della gestione delle rotte e ridurre il traffico di aggiornamento delle tabelle di routing è l'elezione di un *Designated Router* (DR).
+
+Il Designated Router si occupa di calcolare le tabelle di instradamento per tutti i router della rete, riducendo il flooding delle informazioni. Ogni nodo della rete misura le proprie adiacenze e invia i dati raccolti al Designated Router, che esegue l'algoritmo di Dijkstra per determinare i percorsi ottimali per tutte le destinazioni. Una volta completato il calcolo, il DR propaga le tabelle di routing ai router della rete.
+
+Per garantire la resilienza del sistema, viene generalmente eletto anche un *Backup Designated Router* (BDR), che subentra in caso di guasto del DR. Questo approccio riduce significativamente il traffico di aggiornamento delle rotte, ma introduce un carico aggiuntivo sulle comunicazioni tra i router e il Designated Router.
+
+== Evoluzione verso Software Defined Networking (SDN)
+
+L'idea di delegare il calcolo delle tabelle di routing a un singolo router è stata ulteriormente sviluppata con l'introduzione delle *Software Defined Networks* (SDN). Invece di eleggere un router fisico per gestire il calcolo delle rotte, questa funzione viene trasferita su una macchina centralizzata, spesso *situata nel cloud*.
+
+Nel modello SDN:
+
+- Tutti i router della rete inviano i messaggi di controllo a un controller SDN situato nel cloud.
+- Il controller elabora le informazioni ricevute ed esegue il calcolo delle rotte utilizzando algoritmi avanzati.
+- Una volta determinate le tabelle di instradamento ottimali, il controller le invia ai router, che le applicano per gestire il traffico dati.
+
+== Separazione tra Routing e Forwarding
+
+Il successo del modello SDN si basa sulla separazione tra la funzione di routing (calcolo dei percorsi) e la funzione di forwarding (instradamento effettivo dei pacchetti). Poiché il routing può essere gestito centralmente, la rete può beneficiare di maggiore efficienza, ottimizzazione dinamica delle rotte e gestione centralizzata delle policy di rete.
+
+#note[
+  SDN è oggi ampiamente adottato, con Google tra i primi ad implementarlo su larga scala, seguito da molte altre aziende. Il paradigma SDN è diventato fondamentale nelle reti moderne, in particolare con l'avvento del 5G, che sfrutta SDN per una gestione più dinamica e scalabile dell'infrastruttura di rete.
+]
+
+== Tunneling
+
+Il tunneling è una tecnica utilizzata per trasportare pacchetti di rete attraverso una rete che non supporta direttamente il loro protocollo di origine. Questo metodo è particolarmente utile quando si devono instradare pacchetti da una rete IP a una rete non-IP, o viceversa, garantendo la compatibilità tra protocolli diversi.
+
+#align(center, image("images/image-67.png"))
+
+ecco come funziona:
+
+- *Incapsulamento*: Il pacchetto originale viene racchiuso all'interno di un nuovo pacchetto, il cui header appartiene al protocollo della rete di transito.
+- *Trasporto*: Il pacchetto incapsulato viaggia attraverso la rete utilizzando il protocollo del tunnel, restando compatibile con l'infrastruttura di transito.
+- *Decapsulamento*: Una volta raggiunta la destinazione, il pacchetto originale viene estratto e ripristinato con il suo header originale, pronto per essere elaborato dal protocollo di destinazione.
 
