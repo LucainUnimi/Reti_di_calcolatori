@@ -1807,3 +1807,10 @@ Nonostante gli accorgimenti come *Triggered Update* e *Split Horizon*, RIP prese
 1. È inefficiente su reti di grandi dimensioni a causa della lenta convergenza e del problema del Count to Infinity.
 2. Converge verso una soluzione anche quando la rete non è in condizioni ottimali.
 3. Per superare queste limitazioni, è necessario utilizzare protocolli più avanzati, come *OSPF* (Open Shortest Path First), basato su Link State, o *BGP* (Border Gateway Protocol) per reti di grandi dimensioni e interconnessioni globali.
+
+= Lezione 12
+
+Soluzioni come triggered update e split horizon, a volte non funzionano.
+
+Vediamo un esempio:
+
