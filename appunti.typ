@@ -1995,3 +1995,88 @@ ecco come funziona:
 - *Trasporto*: Il pacchetto incapsulato viaggia attraverso la rete utilizzando il protocollo del tunnel, restando compatibile con l'infrastruttura di transito.
 - *Decapsulamento*: Una volta raggiunta la destinazione, il pacchetto originale viene estratto e ripristinato con il suo header originale, pronto per essere elaborato dal protocollo di destinazione.
 
+= Lezione 13
+
+== Border Gateway Protocol (BGP)
+
+Il Border Gateway Protocol (*BGP*) è il protocollo di routing utilizzato per la comunicazione tra i router che gestiscono il flusso di traffico su Internet. Si tratta di un *protocollo di livello 3* (network layer) che si occupa di addressing e routing, ma la sua implementazione avviene a livello applicativo e si appoggia su TCP per garantire una comunicazione affidabile.
+
+#align(center, image("images/image-68.png", width: 12cm))
+
+=== Caratteristiche principali
+
+- BGP *utilizza il protocollo TCP* sulla porta `179` per stabilire connessioni affidabili tra i router.
+- Mantiene sessioni permanenti di TCP tra le unità BGP per scambiare informazioni di routing in modo stabile e sicuro.
+- È utilizzato principalmente per connettere diversi Autonomous Systems (AS) all'interno della backbone di Internet, una rete globale e distribuita a livello intercontinentale.
+
+=== Gestione delle rotte e edel percorso ottimale
+
+BGP si occupa della selezione del percorso ottimale per la trasmissione dei pacchetti. A differenza di altri protocolli di routing, non utilizza algoritmi di flooding, ma si basa su una variante del Distance Vector Routing chiamata *Path Vector Routing*.
+
+=== Path Vector Routing e gestione del Bouncing Effect
+
+Invece di trasmettere semplicemente i costi delle rotte, come nei protocolli Distance Vector tradizionali (ad esempio RIP), *BGP include informazioni aggiuntive sul percorso*, note come *Path Attributes*.
+
+Ogni nodo BGP propaga un vettore di cammini contenente l'elenco degli Autonomous Systems attraversati per raggiungere una determinata destinazione.
+
+Questo meccanismo previene il "bouncing effect" (routing loops), poiché un AS può rifiutare percorsi che contengono se stesso nella lista degli AS attraversati, evitando così di riutilizzare un link guasto.
+
+#important[
+Se un link si guasta, BGP seleziona un nuovo percorso alternativo, anche se ha un costo maggiore, garantendo così la connettività.
+]
+
+== Problematiche del routing tradizionale
+
+Nei router, indipendentemente dal fatto che abbiano o meno una funzione di routing interna, esistono operazioni che richiedono l'elaborazione dell'header IP, in particolare degli indirizzi di origine (source address) e destinazione (destination address). Queste operazioni comprendono il lookup tabellare per determinare il prossimo hop del pacchetto.
+
+Nei punti critici della rete, dove sono richieste prestazioni elevate, il forwarding dei pacchetti deve essere estremamente efficiente. Tuttavia, il classico lookup tabellare basato su indirizzi IP può risultare computazionalmente oneroso. Per accelerare il processo, è necessario intervenire a livello algoritmico riducendo al minimo l'elaborazione necessaria per determinare il percorso di un pacchetto.
+
+== Focus sull'Area 0 di un Autonomous System
+
+L'area 0 di un Autonomous System (AS), nota come backbone area, è la regione in cui transitano:
+
+- Il traffico in ingresso nell'AS proveniente da Internet.
+- Il traffico tra reti periferiche dello stesso AS.
+- Il traffico in uscita dall'AS verso Internet.
+
+Ottimizzare il forwarding dei pacchetti all'interno della backbone area migliora significativamente le prestazioni generali dell'AS, garantendo una maggiore efficienza nella gestione del traffico interconnesso tra subnet e sistemi esterni.
+
+#align(center, image("images/image-69.png", width: 12cm))
+
+== MPLS: Multi-Protocol Label Switching
+
+Per migliorare il forwarding nella backbone area, è stato introdotto MPLS (Multi-Protocol Label Switching), una tecnologia che permette di velocizzare il processo eliminando la necessità di lookup basati su indirizzi IP.
+
+Di seguitole sue caratteristiche:
+
+- *Switching anziché Routing*: MPLS adotta una logica di switching, tipicamente associata al livello 2 del modello OSI, invece di operare un forwarding basato su IP (livello 3).
+- *Uso di Etichette (Labels)*: Invece di analizzare l'intero indirizzo IP di destinazione, MPLS utilizza semplici etichette numeriche per determinare il percorso del pacchetto.
+- *Riduzione dell'Overhead Computazionale*: Poiché i router non devono eseguire un complesso lookup tabellare su un indirizzo IP, il forwarding dei pacchetti avviene in modo significativamente più rapido.
+
+== Funzionamento del MPLS
+
+Il meccanismo di MPLS può essere suddiviso nelle seguenti fasi:
+
+1. *Etichettatura del Traffico*:
+
+  - I pacchetti provenienti dalle aree periferiche e diretti verso la backbone area vengono marcati con un'etichetta MPLS.
+
+  - Questa etichetta numerica viene assegnata secondo le policy definite dall'operatore di rete.
+
+  - I router di confine della backbone area, noti come *ABR* (Area Border Routers), sono responsabili dell'aggiunta dell'header MPLS (etichetta) ai pacchetti in ingresso
+
+2. *Forwarding Basato su Etichetta*:
+
+  - All'interno della backbone area, i router non eseguono un classico routing basato su IP, ma *effettuano lo switching dei pacchetti basandosi esclusivamente sulle etichette MPLS*.
+
+  - Questo consente di evitare lookup IP complessi e velocizza il processo di inoltro.
+
+3. *Decapsulazione in Uscita*:
+
+  - Quando il pacchetto raggiunge il router di bordo della destinazione finale, l'ABR di uscita rimuove l'header MPLS e ripristina il normale header IP.
+
+  - Il pacchetto originale viene quindi inoltrato utilizzando il normale routing IP fino alla sua destinazione finale.
+
+#align(center, image("images/image-70.png"))
+
+
