@@ -2,112 +2,89 @@
 
 Questa repository raccoglie appunti dettagliati sul corso di **Reti di Calcolatori** dell’Università degli Studi di Milano (UniMi). Gli appunti includono testi, schemi e illustrazioni per facilitare la comprensione dei concetti trattati.
 
-## 📌 Contenuto
+## 📌 Stato degli Appunti  
 
-**Legenda degli stati degli appunti:**
+| Simbolo | Significato |
+|---------|------------|
+| ✅ | **Completo** – Argomento trattato in modo esaustivo |
+| 📝 | **Parziale** – Potrebbero mancare dettagli o esempi |
+| 🔧 | **Da revisionare** – Possibili errori da correggere |
+| 🚧 | **In lavorazione** – Sezione in aggiornamento |
+| ❌ | **Non ancora trattato** – Argomento da affrontare |
 
-- ✅ **Completo**: Argomento trattato in modo esaustivo, con spiegazioni chiare e schemi/disegni.  
-- 📝 **Parziale**: Contenuto presente ma potrebbe mancare qualche dettaglio o esempio.  
-- 🔧 **Da revisionare**: Spiegazioni incomplete o possibili errori da correggere.  
-- 🚧 **In lavorazione**: Sezione in fase di scrittura/aggiornamento.  
-- ❌ **Non ancora trattato** – Argomento che deve ancora essere affrontato
+---
 
-#### 1️⃣ Modelli di Rete e Architetture
-- **Modello OSI**  ✅
-  - I sette livelli  
-  - Incapsulamento e deincapsulamento  
-- **Modello TCP/IP** ❌
-  - Confronto con OSI  
-  - Percorso dei pacchetti in rete  
-- **Livello Data Link** ✅ 
-  - Frame vs Pacchetti  
-  - Affidabilità end-to-end  
-  - MAC layer e LLC layer  
-- **Livello di Rete (IP)** ✅
-  - Struttura di un router  
-  - Forwarding vs Routing  
+## 📂 Contenuti  
 
-#### 2️⃣ Protocolli di Comunicazione
-- **ARP (Address Resolution Protocol)** ✅
-  - Risoluzione IP-MAC  
-  - Proxy ARP  
-- **DHCP (Dynamic Host Configuration Protocol)** ✅
-  - Protocollo DORA  
-  - Rinnovo e rilascio IP  
-- **NAT (Network Address Translation)** ✅
-  - Funzionamento e limitazioni  
-  - NAT e server esterni  
-- **ICMP** ✅
-  - Formato del pacchetto  
-  - Ruolo nella diagnostica  
-- **BGP (Border Gateway Protocol)** 🚧
-  - Path Vector Routing  
-  - Gestione delle rotte tra Autonomous System  
+### 🏗 **1. Modelli di Rete e Architetture**  
 
-#### 3️⃣ Tecnologie di Trasmissione Dati
-- **Ethernet** ✅
-  - CSMA/CD e gestione collisioni  
-  - Binary Exponential Backoff (BEB)  
-  - Dominio di collisione  
-- **Bridge e Switch** ✅
-  - Separazione domini di collisione  
-  - Store e Forwarding  
-  - Tabelle di forwarding  
-- **VLAN (Virtual LAN)** ✅
-  - Tagging VLAN  
-  - Comunicazione tra VLAN diverse  
-- **MPLS (Multi-Protocol Label Switching)** 🚧
-  - Funzionamento e ottimizzazione del traffico  
+| Argomento | Stato |
+|-----------|-------|
+| **Modello OSI** – I sette livelli, incapsulamento e deincapsulamento | ✅ |
+| **Modello TCP/IP** – Confronto con OSI, percorso pacchetti in rete | ❌ |
+| **Livello Data Link** – Frame vs pacchetti, affidabilità end-to-end, MAC e LLC | ✅ |
+| **Livello di Rete (IP)** – Struttura di un router, forwarding vs routing | ✅ |
 
-#### 4️⃣ Gestione degli Errori e Affidabilità
-- **Protocolli Stop-and-Wait** ✅ 
-  - Limiti e inefficienze  
-- **Protocolli a Finestra** ✅ 
-  - Go-Back-N  
-  - Selective Repeat  
-  - ACK selettivi vs cumulativi  
-- **Ritrasmissione** ✅
-  - Numerazione ciclica dei frame  
-  - Timeout e gestione perdite  
+### 📡 **2. Protocolli di Comunicazione**  
 
-#### 5️⃣ Routing e Instradamento
-- **Distance Vector** 🔧
-  - Algoritmo RIP  
-  - Problemi: Count to Infinity, Bouncing Effect  
-  - Soluzioni: Split Horizon, Triggered Updates  
-- **Link State**  🚧
-  - Algoritmo OSPF  
-  - Misurazione costi di rete  
-- **Software Defined Networking (SDN)** ✅
-  - Separazione controllo e forwarding  
-  - Tunneling  
+| Argomento | Stato |
+|-----------|-------|
+| **ARP (Address Resolution Protocol)** – Risoluzione IP-MAC, Proxy ARP | ✅ |
+| **DHCP (Dynamic Host Configuration Protocol)** – Protocollo DORA, rinnovo IP | ✅ |
+| **NAT (Network Address Translation)** – Funzionamento, NAT e server esterni | ✅ |
+| **ICMP** – Formato del pacchetto, ruolo nella diagnostica | ✅ |
+| **BGP (Border Gateway Protocol)** – Path Vector Routing, gestione delle rotte | 🚧 |
 
-#### 6️⃣ Indirizzamento IP e Subnetting
-- **IPv4** ✅
-  - Struttura dell’header  
-  - Frammentazione e riassemblaggio  
-- **Classi di Indirizzi** ✅ 
-  - Limiti e transizione a CIDR  
-- **Subnetting e CIDR** 🔧
-  - Assegnazione gerarchica  
-  - Esempi pratici (es. Milano)  
+### 🔗 **3. Tecnologie di Trasmissione Dati**  
 
-#### 7️⃣ Gestione della Congestione e Prestazioni
-- **TCP e Controllo della Congestione** 🚧
-  - Meccanismi di riduzione della velocità  
-  - Adattamento in reti wireless  
-- **Jitter e Buffer di Playout** ✅
-  - Gestione del delay nella multimedialità  
-- **Efficienza del Canale** 🔧
-  - Formula e ottimizzazioni (es. Gigabit Ethernet)  
+| Argomento | Stato |
+|-----------|-------|
+| **Ethernet** – CSMA/CD, gestione collisioni, Binary Exponential Backoff | ✅ |
+| **Bridge e Switch** – Separazione domini di collisione, forwarding | ✅ |
+| **VLAN (Virtual LAN)** – Tagging VLAN, comunicazione tra VLAN diverse | ✅ |
+| **MPLS (Multi-Protocol Label Switching)** – Ottimizzazione del traffico | 🚧 |
 
-#### 8️⃣ Tecnologie Avanzate
-- **Reti Wireless**  ❌
-  - Problemi specifici e adattamenti TCP  
-- **SDN (Software Defined Networking)** 🚧
-  - Architettura ibrida hub-switch  
-- **Tecnologie di Transizione** ❌
-  - Dual Stack IPv4/IPv6  
+### 🛠 **4. Gestione degli Errori e Affidabilità**  
+
+| Argomento | Stato |
+|-----------|-------|
+| **Protocolli Stop-and-Wait** – Limiti e inefficienze | ✅ |
+| **Protocolli a Finestra** – Go-Back-N, Selective Repeat, ACK selettivi | ✅ |
+| **Ritrasmissione** – Numerazione ciclica dei frame, timeout e gestione perdite | ✅ |
+
+### 📍 **5. Routing e Instradamento**  
+
+| Argomento | Stato |
+|-----------|-------|
+| **Distance Vector** – Algoritmo RIP, Count to Infinity, Split Horizon | 🔧 |
+| **Link State** – Algoritmo OSPF, misurazione costi di rete | 🚧 |
+| **Software Defined Networking (SDN)** – Separazione controllo e forwarding | ✅ |
+
+### 📊 **6. Indirizzamento IP e Subnetting**  
+
+| Argomento | Stato |
+|-----------|-------|
+| **IPv4** – Struttura dell’header, frammentazione e riassemblaggio | ✅ |
+| **Classi di Indirizzi** – Limiti e transizione a CIDR | ✅ |
+| **Subnetting e CIDR** – Assegnazione gerarchica, esempi pratici | 🔧 |
+
+### ⚙ **7. Gestione della Congestione e Prestazioni**  
+
+| Argomento | Stato |
+|-----------|-------|
+| **TCP e Controllo della Congestione** – Meccanismi di riduzione velocità | 🚧 |
+| **Jitter e Buffer di Playout** – Gestione del delay nella multimedialità | ✅ |
+| **Efficienza del Canale** – Formula e ottimizzazioni (es. Gigabit Ethernet) | 🔧 |
+
+### 🚀 **8. Tecnologie Avanzate**  
+
+| Argomento | Stato |
+|-----------|-------|
+| **Reti Wireless** – Problemi specifici e adattamenti TCP | ❌ |
+| **SDN (Software Defined Networking)** – Architettura ibrida hub-switch | 🚧 |
+| **Tecnologie di Transizione** – Dual Stack IPv4/IPv6 | ❌ |
+
+---
 
 ## 👥 Collaborazioni
 I disegni presenti negli appunti sono stati realizzati da [Gabriele Paulon](https://github.com/casten01), che contribuisce come collaboratore alla repository.
