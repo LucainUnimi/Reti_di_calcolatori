@@ -159,7 +159,7 @@ $t_p = L/V_p$
 
 == Protocolli di rete
 
-Due macchine che comunicano, devono avere delle regole *convenzionate* condivise per poterlo fare. Queste regole sono efinite in quellio che vengono chiamati *protocolli*
+Due macchine che comunicano, devono avere delle regole *convenzionate* condivise per poterlo fare. Queste regole sono definite in quelli che vengono chiamati *protocolli*
 
 #important[Un protocollo è un algoritmo distribuito che regola la comunicazione tra le macchine.]
 
@@ -475,7 +475,7 @@ Esaminiamo degli esempi per comprendere meglio quanto trattato fino ad ora.
   Calcoliamo il tempo di trasmissione $t_x$ e il tempo di propagazione $t_p$ per un pacchetto, e determiniamo l'utilizzo del canale per un protocollo Stop-and-Wait.
 
   $t_x = 10^3/10^7 = 10^-4 = 0,1$ms.\
-  $t_p = 2 * 10^3/2*10^8 = 10^-5 = 10$ micro-secondi\
+  $t_p = frac(2 * 10^3,2*10^8) = 10^-5 = 10$ micro-secondi\
 
   Il tempo totale di trasmissione è quindi pari a $T = 0,1 + 0,02 = 0,12$ ms
 
@@ -487,7 +487,7 @@ Esaminiamo degli esempi per comprendere meglio quanto trattato fino ad ora.
   Calcoliamo il tempo di trasmissione $t_x$ e il tempo di propagazione $t_p$ per un pacchetto, e determiniamo l'utilizzo del canale per un protocollo Stop-and-Wait.
 
   $t_x = 10^3/10^7 = 10^-4 = 0,1$ms.\
-  $t_p = 20 * 10^3/2*10^8 = 10^-4 = 100$ micro-secondi\
+  $t_p = frac(20 * 10^3,2*10^8) = 10^-4 = 100$ micro-secondi\
 
   il tempo totale di trasmissione è quindi pari a $T = 0,1 + 0,2 = 0,3$ ms
 
