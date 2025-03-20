@@ -2079,4 +2079,75 @@ Il meccanismo di MPLS può essere suddiviso nelle seguenti fasi:
 
 #align(center, image("images/image-70.png"))
 
+== Label switching nei router
 
+Ogni router, o meglio ogni *label switch router*, avrà una *label switching table* di questo tipo:
+
+#align(center, image("images/image-71.png"))
+
+#tip[
+*Esempio di funzionamento* \\
+Osservando la tabella del router `R1`, notiamo che se un pacchetto arriva sulla porta `1` con etichetta `56`, il router lo inoltra sulla porta di uscita `2`, sostituendo l'etichetta con `27`, e lo trasmette verso la destinazione successiva.
+]
+
+== Gestione delle etichette
+
+Ogni router assegna e gestisce le etichette in modo autonomo. È possibile etichettare non solo i singoli pacchetti, ma anche interi flussi di traffico.
+
+#note[
+Ad esempio, tutto il traffico che viaggia dall’aula _Alpha_ all’aula _Beta_ può essere contrassegnato con la stessa etichetta, permettendo una gestione più efficiente.
+]
+
+L’elemento chiave che omogeneizza questi flussi è la Qualità del Servizio (*QoS*), strettamente legata al campo Type of Service (ToS) presente nei pacchetti IP
+
+== Costruzione delle tabelle di switching
+
+Le tabelle di switching vengono costruite in modo da ottimizzare i percorsi dei pacchetti con la stessa etichetta, garantendo il miglior instradamento possibile. In questo contesto, *il protocollo OSPF non viene eliminato*, ma continua a svolgere un ruolo fondamentale:
+
+- Deve raccogliere le informazioni sullo stato dei collegamenti tra i router nell'area di rete.
+- Deve costruire la topologia del grafo della rete per identificare i cammini minimi.
+
+Invece di propagare tradizionali tabelle di routing, Il Designated Router si occupa della distribuzione delle tabelle di switching, facilitando l'instradamento basato sulle etichette.
+
+Questo approccio, noto come Label Switching, permette di velocizzare il traffico di rete rispetto al tradizionale IP Routing, migliorando l’efficienza e riducendo il carico computazionale sui router.
+
+== Formato del pacchetto MPLS
+
+Un pacchetto MPLS è strutturato nel seguente modo:
+
+Di seguito la composizione di un pacchetto MPLS:
+
+#align(center, image("images/image-72.png"))
+
+Di seguito, la descrizione dei principali campi dell’header MPLS:
+
+- *Label*: Funziona da identificatore e permette l’instradamento del pacchetto basato su etichette anziché sugli indirizzi IP tradizionali.
+- *Class of Service* (CoS): Permette di classificare il pacchetto in base alla qualità del servizio (QoS). Questo consente di far fluire il pacchetto e tutti quelli appartenenti allo stesso flusso lungo un percorso specifico, garantendo priorità e gestione ottimale del traffico.
+- *S* (Bottom of Stack): Indica se il pacchetto MPLS fa parte di una pila di etichette (Multiple Label). Se il valore è 1, il pacchetto rappresenta l'ultima etichetta nella pila.
+- *TTL* (Time To Live): Serve a prevenire cicli infiniti nella rete. Ogni router decrementa il valore TTL del pacchetto, e se questo raggiunge 0, il pacchetto viene scartato.
+
+== Spanning tree
+
+Lo Spanning Tree è una tecnica utilizzata nella costruzione dell'albero dei cammini minimi all'interno di una rete complessa. Viene impiegato in particolare nelle reti con protocollo Link-State, dove ogni nodo è in grado di costruire il grafo della rete e calcolare i cammini minimi verso gli altri nodi.
+
+#align(center, image("images/image-73.png"))
+
+=== Tipologie di porte nello spanning tree
+
+1. *Root Port* (RP): Porta che punta verso la radice dell'albero.
+
+2. *Designated Port* (DP): Porta che conduce verso i nodi foglia.
+
+3. *Blocked Port* (BP): Porta disabilitata per prevenire la formazione di cicli all'interno della rete.
+
+=== Funzionamento
+
+Alla ricezione di un pacchetto sulla Root Port, il router lo propaga su tutte le *Designated Ports*. Questo processo consente di costruire un *albero dei cammini minimi*, che ottimizza il numero di pacchetti inviati in una *trasmissione broadcast*, riducendo così la congestione della rete.
+
+#align(center, image("images/image-74.png"))
+
+L'algoritmo dello Spanning Tree è progettato per risolvere due problemi principali nelle reti di computer:
+
+- *Evitare il sovraccarico della rete*: Previene la trasmissione ridondante di pacchetti ai nodi vicini, ottimizzando l'instradamento.
+
+- *Prevenire cicli infiniti*: Impedisce che un pacchetto rimanga intrappolato in un loop tra due o più nodi, garantendo così un'efficiente gestione del traffico
