@@ -2151,3 +2151,280 @@ L'algoritmo dello Spanning Tree è progettato per risolvere due problemi princip
 - *Evitare il sovraccarico della rete*: Previene la trasmissione ridondante di pacchetti ai nodi vicini, ottimizzando l'instradamento.
 
 - *Prevenire cicli infiniti*: Impedisce che un pacchetto rimanga intrappolato in un loop tra due o più nodi, garantendo così un'efficiente gestione del traffico
+
+= Lezione 14
+
+== Quality Of Service nelle reti di comunicazione
+
+Nell'ambito delle reti di comunicazione, esiste una grande diversificazione dei servizi e del traffico. Le comunicazioni possono avere esigenze differenti in termini di:
+
+- *Sensibilità al ritardo* (latency sensitivity): alcune applicazioni richiedono una latenza minima per garantire un'esperienza utente accettabile.
+
+- *Banda richiesta* (bandwidth requirements): certi servizi necessitano di un'elevata disponibilità di banda per operare correttamente.
+
+- *Sensibilità al jitter* (jitter sensitivity): la variazione nella latenza dei pacchetti può influire negativamente su alcune applicazioni, come lo streaming in tempo reale.
+
+Per garantire questi parametri di qualità, entra in gioco il concetto di Quality of Service (*QoS*), che permette di impostare specifici parametri per le diverse applicazioni. Tuttavia, le reti tradizionali operano con un approccio best-effort, che non offre alcuna garanzia sulla qualità del servizio. La QoS serve quindi a colmare questo divario, implementando meccanismi per migliorare l'esperienza utente.
+
+#align(center, image("images/image-75.png"))
+
+A seconda delle necessità applicative, vengono adottate diverse strategie per la gestione della QoS.
+
+Applicazioni come lo *streaming audio e video* utilizzano il *buffer di playout*, che immagazzina temporaneamente i dati ricevuti per compensare il ritardo e le variazioni di *jitter*. Questo introduce un trade-off tra affidabilità e riduzione del jitter.
+
+Uno degli strumenti più importanti per il controllo della QoS è la *gestione delle code* nei router.
+
+== Gestione delle code: Input
+
+Uno dei problemi principali che una rete può affrontare è la *congestione dei nodi*, ovvero una situazione in cui il traffico in ingresso su un router supera la sua capacità di elaborazione e forwarding. Questo fenomeno si verifica quando:
+
+- Il numero di link di ingresso è elevato.
+- Il traffico su ciascun link aumenta.
+- La memoria allocata per la gestione delle code in ingresso si esaurisce.
+- Le code si saturano, portando a un aumento del tempo di servizio del router.
+- Si verifica un buffer overflow, causando la perdita di pacchetti.
+
+=== Random Early Detection (RED)
+
+RED è una tecnica di gestione della congestione che permette di *prevenire* la saturazione delle code attraverso un meccanismo di *dropping anticipato dei pacchetti*. Il principio di funzionamento di RED si basa su:
+
+- Calcolo di una variabile di utilizzo $u$ che misura il livello di occupazione della coda.
+
+- Definizione di soglie:
+
+  - *Max Threshold*: soglia massima oltre la quale i pacchetti vengono scartati.
+
+  - *Operating Threshold*: soglia operativa al di sotto della quale i pacchetti vengono accettati senza restrizioni.
+
+- Aggiornamento periodico di $u$, basato su misurazioni della lunghezza della coda e su un parametro critico $alpha$ (compreso tra 0 e 1), che determina l'importanza della storia passata nell'aggiornamento del valore di $u$.
+
+A seconda del valore calcolato di $u$, il router può:
+
+1. Accettare il pacchetto e inserirlo in coda.
+
+2. Scartare il pacchetto immediatamente.
+
+3. Accettare il pacchetto, ma eliminare in modo random un altro pacchetto già in coda.
+
+La probabilità di scarto aumenta man mano che il valore di  si avvicina alla soglia massima, riducendo così il rischio di un overflow improvviso della coda
+
+#align(center, image("images/image-76.png"))
+
+=== ICMP e Choke Packets
+
+Un'altra tecnica per la gestione della congestione è l'utilizzo di pacchetti ICMP di tipo "*choke packet*", che vengono propagati a ritroso verso la sorgente per segnalare la congestione e ridurre il traffico in ingresso. Tuttavia, questa soluzione presenta alcune limitazioni:
+
+- Introduce ulteriore traffico di controllo sulla rete.
+
+- Comporta un ritardo nella rilevazione della sorgente del traffico e nella conseguente reazione
+
+=== Vantaggi di RED
+
+L'elemento chiave di RED è la sua componente *Early*: i pacchetti vengono scartati in modo casuale *prima* che la coda raggiunga la saturazione completa. Questo approccio consente di:
+
+- Prevenire l'overflow del buffer.
+
+- Evitare il blocco della rete a causa di code eccessivamente lunghe.
+
+- Indurre un controllo del traffico a livello di trasporto (TCP) prima che la congestione diventi critica.
+
+Grazie a RED, la gestione del traffico risulta più efficiente, garantendo una maggiore stabilità e affidabilità della rete.
+
+== Gestione delle code: output
+
+Nel sistema di gestione delle code in output, sono presenti `k` code collegate a uno *scheduler*, il quale ha il compito di gestire il traffico in uscita. Lo scheduler serve prioritariamente i pacchetti con i requisiti di real-time più stringenti, ovvero quelli con priorità più elevata.
+
+Un componente fondamentale di questo sistema è il *classificatore*, il quale analizza il Type of Service (ToS) dei pacchetti in ingresso e li assegna alle code appropriate in base ai requisiti di Quality of Service (QoS). Ogni coda ha un livello di priorità diverso, e l'obiettivo principale è garantire una gestione efficiente della QoS.
+
+#align(center, image("images/image-77.png", width: 12cm))
+
+=== Problema della Starvation nelle Code a Priorità
+
+L'assegnazione di priorità differenti alle code introduce il rischio di *starvation* per le classi di traffico con priorità bassa. Questo accade perché, in presenza di traffico continuo con priorità elevata (ad esempio, una videoconferenza), le code a priorità inferiore potrebbero non essere mai servite, compromettendo la loro accessibilità al canale di trasmissione.
+
+La soluzione a questo problema risiede nel *Weighted Fair Queuing (WFQ)*
+
+Per evitare il problema della starvation, si adotta la tecnica Weighted Fair Queuing (WFQ), ovvero un sistema di code con pesi assegnati. In questo schema, ogni classe di traffico riceve una quota del canale proporzionale al proprio peso, senza che nessuna classe venga esclusa completamente.
+
+Formalmente, per ogni coda i, la frazione di banda assegnata è pari a:
+
+#align(center, $(w_i)/(sum(w_j))$)
+
+dove $w_i$ rappresenta il peso della coda $i$ e la somma $sum(w_j)$ è il totale dei pesi assegnati alle code. In questo modo, ogni classe di traffico mantiene una probabilità di essere servita, evitando l'azzeramento del throughput per le code a bassa priorità.
+
+#align(center, image("images/image-78.png", width: 12cm))
+
+#tip[
+Consideriamo un sistema con tre code, ciascuna associata a un peso:
+
+- Coda 1: $w_1 = 4$
+- Coda 2: $w_2 = 2$
+- Coda 3: $w_3 = 2$
+
+secondo la formula $(w_i)/(sum(w_j))$, calcoliamo la frazione di banda assegnata a ciascuna coda:
+
+- Coda 1: $(4)/(4 + 2 + 2) = 4/8 = 1/2$. La coda 1 occupa il 50% del canale
+- Coda 2: $2/8 = 1/4$. La coda 2 occupa il 25% del canale.
+- Coda 3: $2/8 = 1/4$. La coda 3 occupa il 25% del canale.
+
+Questo esempio dimostra come, anche in presenza di pesi differenti, ogni coda mantenga comunque una probabilità di accesso al canale. In particolare, le code a priorità inferiore non vengono mai completamente escluse (starvation-free allocation), garantendo un'equa distribuzione delle risorse in base ai pesi assegnati.
+]
+
+=== Weighted Fair Queuing + RED: Weighted RED (WRED)
+
+Un ulteriore miglioramento consiste nell'integrazione della tecnica WFQ con il meccanismo Random Early Detection (RED), ottenendo così il *Weighted RED* (WRED). Questa combinazione consente di:
+
+- Gestire in modo più efficace la congestione, eliminando preventivamente pacchetti prima che il buffer della coda si saturi completamente.
+- Differenziare le soglie di scarto dei pacchetti in base alla priorità del traffico, riducendo il rischio di perdita per i flussi critici.
+- Ottimizzare l'utilizzo della banda disponibile, garantendo un bilanciamento equo tra efficienza e qualità del servizio.
+
+In sintesi, l'uso di Weighted Fair Queuing con Weighted RED permette di garantire un'allocazione equa delle risorse di rete, mitigando il problema della starvation e migliorando la gestione della congestione.
+
+== Traffic Shaping e Qualità di Servizio (QoS)
+
+Garantire la qualità del servizio (QoS) in una rete richiede il rispetto di determinati parametri di ingresso. Se un'entità dichiara di rispettare un certo flusso di traffico ma non lo fa, è necessario intervenire a livello di controllo del traffico per evitare congestioni e degradazione del servizio.
+
+Nel momento in cui si garantisce la qualità del servizio sull'input, è necessario implementare un controllo rigoroso dell'ingresso del traffico per assicurare che i flussi rispettino i parametri stabiliti.
+
+Il Traffic Shaping è una tecnica di regolazione del traffico che opera *prima* della gestione delle code. Consente di specificare:
+
+- Tasso medio di pacchetti
+
+- Picco massimo di pacchetti per unità di tempo
+
+- Burst massimo consentito (ovvero il numero massimo di pacchetti che possono essere inviati in un breve intervallo di tempo)
+
+#note[
+  Poiché il traffico può non essere uniforme, il traffic shaping permette agli utenti di inviare dati con una certa flessibilità entro i limiti definiti.
+]
+
+=== Call Admission Control (CAC)
+
+Il Call Admission Control (CAC) è un meccanismo di controllo dell'ammissione del traffico che garantisce che solo il traffico conforme ai parametri contrattuali venga accettato. Se il traffico in ingresso supera le soglie stabilite, *l'eccesso viene limitato già all'ingresso della rete*, evitando la necessità di interventi successivi, come il dropping dei pacchetti durante la trasmissione.
+
+=== Token Bucket: Meccanismo di Controllo del Traffico
+
+Uno degli strumenti principali per il traffic shaping è il *Token Bucket*, che regola l'invio dei pacchetti attraverso un meccanismo basato su token:
+
+- Un token viene rilasciato periodicamente dal bucket.
+
+- I pacchetti in ingresso devono attendere la disponibilità di un token per poter essere trasmessi.
+
+- Se un pacchetto arriva e non vi sono token disponibili, deve rimanere in coda fino a quando un nuovo token viene generato.
+
+- Il traffico viene immesso nella rete solo dopo essere stato classificato in base alle regole di QoS.
+
+#align(center, image("images/image-79.png", width: 9cm))
+
+=== Benefici del traffing shaping
+
+L'utilizzo di queste tecniche consente di:
+
+- Garantire un tasso medio di trasmissione costante e prevedibile.
+
+- Limitare i picchi di traffico evitando congestioni e perdita di pacchetti.
+
+- Assicurare che il traffico sia conforme ai parametri definiti nel contratto di servizio.
+
+- Ottimizzare la gestione delle code in rete, migliorando l'efficienza della trasmissione.
+
+== IPv6: Caratteristiche e Differenze rispetto a IPv4
+
+IPv6 rappresenta un'evoluzione significativa rispetto a IPv4, introducendo diversi miglioramenti e semplificazioni:
+
+- *Indirizzi più lunghi*: la lunghezza degli indirizzi passa da 32 bit (IPv4) a 128 bit (IPv6), eliminando definitivamente il problema dell'esaurimento degli indirizzi.
+
+- *Header più semplice*: rispetto agli header di livello 4, l'header IPv6 è più essenziale e contiene meno campi, garantendo una maggiore efficienza.
+
+- *Campo Versione*: simile a IPv4, identifica il protocollo IP in uso.
+
+- *Traffic Class* (ToS - Type of Service): in IPv6 assume una funzione più definita, consentendo la classificazione dei pacchetti in base alla qualità del servizio (QoS).
+
+- *Lunghezza del Payload*: indica la dimensione del payload trasportato.
+
+- *Hop Count*: equivalente al TTL (Time To Live) di IPv4, riduce il numero massimo di router che un pacchetto può attraversare prima di essere scartato.
+
+- *Next Header*: una delle principali novità di IPv6, specifica il tipo di header successivo (es. TCP, UDP o un header di estensione). Questo consente un'architettura modulare e flessibile.
+
+#align(center, image("images/image-80.png"))
+
+=== Semplificazione dell'header e gestione delle opzioni
+
+IPv6 adotta un approccio minimale nell'header:
+
+- *Assenza di campi opzionali nell'header principale*: in IPv4, tra l'header e il payload potevano essere presenti opzioni; in IPv6, invece, tutte le informazioni opzionali vengono spostate in header di estensione.
+
+- *Frammentazione dei pacchetti*: IPv6 non gestisce la frammentazione a livello di router come IPv4. La frammentazione viene gestita esclusivamente dagli host di origine tramite header di estensione dedicati.
+
+- *Header di estensione*: qualora siano necessari campi aggiuntivi, questi vengono inseriti in header extra concatenati in una struttura gerarchica. Ogni header di estensione ha un codice identificativo definito dagli RFC, e alcuni  esempi possono essere _Hop-by-Hop Options_, _Routing (Source Routing)_, _Authentication Header (AH)_, _Encapsulating Security Payload (ESP)_, _Fragment Header_.
+
+=== Formato degli indirizzi IPv6
+
+Gli indirizzi IPv6 sono organizzati secondo una struttura gerarchica che ottimizza il routing:
+
+- *I primi 3 bit* indicano il tipo di indirizzo standard IPv6.
+
+- *I successivi 5 bit* selezionano il registro degli indirizzi continentali.
+
+- *Top-Level Aggregator (TLA)*: gestisce gli indirizzi a livello continentale e sovranazionale.
+
+- *Next-Level Aggregator* (NLA): identifica gli Autonomous Systems nazionali.
+
+- *Site-Level Aggregator* (SLA): gestisce gli indirizzi a livello regionale.
+
+- *Struttura gerarchica per il routing*: ogni router gestisce solo una porzione dell'indirizzo, riducendo la complessità delle tabelle di routing e migliorando le performance.
+
+#align(center, image("images/image-81.png"))
+
+== Compatibilità tra IPv4 e IPv6
+
+La transizione da IPv4 a IPv6 richiede soluzioni di *interoperabilità*:
+
+- *Dual Stack*: un dispositivo può supportare entrambi i protocolli contemporaneamente.
+
+- *Tunneling*: quando due host IPv6 comunicano attraverso una rete IPv4, i pacchetti IPv6 vengono incapsulati in pacchetti IPv4, permettendo la comunicazione.
+
+- *Traduzione IPv6-IPv4*: i router di bordo eseguono la conversione dei pacchetti tra i due protocolli quando necessario.
+
+=== Dual Stack
+
+Il Dual Stack è una delle soluzioni più comuni per la compatibilità tra IPv4 e IPv6.
+
+#align(center, image("images/image-82.png"))
+
+L'immagine mostra tre dispositivi:
+
+- Host IPv6: Comunica utilizzando esclusivamente il protocollo IPv6.
+- *Server Dual Stack*: Supporta sia IPv4 che IPv6 e funge da intermediario tra i due mondi.
+- Host IPv4: Comunica solo tramite IPv4.
+
+Come funziona?
+
+Il server con doppio stack può gestire richieste provenienti da entrambi i protocolli, scegliendo quale utilizzare in base alla configurazione della rete e delle applicazioni. Questo metodo è efficace, ma richiede che tutti i dispositivi coinvolti supportino sia IPv4 che IPv6, il che non è sempre possibile.
+
+=== Tunneling IPv6 su IPv4
+
+Quando due host IPv6 devono comunicare attraverso una rete IPv4, si utilizza il *tunneling* per incapsulare i pacchetti IPv6 dentro pacchetti IPv4. 
+
+#align(center, image("images/image-83.png", width: 12cm))
+
+L'immagine mostra:
+
+- Due host IPv6 ai lati della rete.
+- Router di confine ("GW" - Gateway), che sono in grado di incapsulare e decapsulare i pacchetti IPv6.
+- Rete centrale IPv4, che trasporta i pacchetti incapsulati.
+
+Come funziona?
+
+1. L'host IPv6 invia un pacchetto IPv6.
+2. Il gateway di bordo lo incapsula dentro un pacchetto IPv4.
+3. La rete IPv4 trasporta il pacchetto incapsulato fino all'altro gateway di bordo.
+4. Il gateway rimuove l'incapsulamento e il pacchetto IPv6 raggiunge il suo destinatario.
+
+#note[
+Questo metodo permette la comunicazione IPv6 senza modificare la rete IPv4, ma introduce un piccolo overhead dovuto all'incapsulamento.
+]
+
+=== Traduzione IPv6-IPv4
+
+Se un host IPv6 deve comunicare direttamente con un host IPv4, è necessario un meccanismo di traduzione. Un router o gateway specializzato converte i pacchetti IPv6 in IPv4 e viceversa, adattando anche gli indirizzi e le intestazioni. Tuttavia, questa soluzione può avere limitazioni, specialmente con applicazioni che dipendono da funzionalità specifiche di IPv6.
