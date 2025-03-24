@@ -2428,3 +2428,366 @@ Questo metodo permette la comunicazione IPv6 senza modificare la rete IPv4, ma i
 === Traduzione IPv6-IPv4
 
 Se un host IPv6 deve comunicare direttamente con un host IPv4, è necessario un meccanismo di traduzione. Un router o gateway specializzato converte i pacchetti IPv6 in IPv4 e viceversa, adattando anche gli indirizzi e le intestazioni. Tuttavia, questa soluzione può avere limitazioni, specialmente con applicazioni che dipendono da funzionalità specifiche di IPv6.
+
+= Lezione 15
+
+== Livello 4: protocollo di trasporto
+
+=== Differenze con i livelli precedenti
+
+A differenza dei protocolli presenti negli apparati di rete, che comunicano hop-by-hop lungo una sequenza di sistemi di connettività, i protocolli di livello 4 operano *end-to-end*. Questo significa che la comunicazione avviene direttamente tra il dispositivo sorgente e il dispositivo di destinazione dell'utente finale, senza coinvolgere gli apparati intermedi per la gestione della sessione.
+
+Le unità di dati scambiate a livello 4 vengono chiamate *segmenti*.
+
+#align(center, image("images/image-84.png", width: 10cm))
+
+=== Affidabilità e Servizi di Livello 4
+
+Il livello 4 offre sia servizi affidabili che non affidabili:
+
+- *TCP* (Transmission Control Protocol): servizio affidabile che garantisce la corretta consegna dei dati.
+
+- *UDP* (User Datagram Protocol): servizio non affidabile, più leggero e adatto a trasmissioni in tempo reale.
+
+L'affidabilità a livello 4 si affianca all'affidabilità opzionale di livello 2, gestendo l'overhead a seconda delle esigenze della comunicazione.
+
+=== Indirizzamento al livello 4
+
+L'indirizzamento è un tema chiave di ogni livello della rete. A livello 4, il problema consiste nell'indirizzare i processi utente in esecuzione all'interno di una macchina, affinché possano essere identificati univocamente.
+
+Per questo motivo, oltre all'indirizzo IP (livello 3), si utilizza un ulteriore identificatore: la porta. La porta consente di discriminare quale processo di livello 7 sta utilizzando la connessione.
+
+=== Il Concetto di Porta
+
+Per comunicare tramite TCP o UDP, un processo di livello 7 richiede al sistema operativo l'assegnazione di una porta, un identificatore numerico univoco all'interno della macchina. Questo avviene tramite una primitiva di sistema che restituisce un identificatore numerico chiamato socket.
+
+Una connessione di livello 4 viene quindi identificata univocamente tramite una tupla composta da:
+
+- *Porta sorgente*
+
+- *Porta destinazione*
+
+- *Indirizzo IP sorgente*
+
+- *Indirizzo IP destinazione*
+
+- *Protocol Selector* (TCP o UDP)
+
+Questa tupla è nota come socket, e permette di distinguere univocamente ogni connessione di trasporto sulla rete.
+
+=== Risoluzione dell'indirizzo IP
+
+Per avviare una comunicazione, un client deve conoscere l'indirizzo IP del server di destinazione. Tuttavia, gli utenti finali utilizzano nomi mnemonici (es. www.example.com) invece di indirizzi IP, inoltre, l'indirizzo IP è un'informazione di livello 3.
+
+A questo scopo si utilizza il *DNS* (Domain Name System), un servizio di livello 7 che:
+
+1. Riceve una richiesta contenente un nome logico (hostname).
+
+2. Restituisce l'indirizzo IP corrispondente, necessario per la comunicazione a livello 3.
+
+=== Well-Known Ports e Protocol Selector
+
+Alcuni servizi standard sono associati a numeri di porta predefiniti, detti *Well-Known Ports* (es. HTTP sulla porta 80, HTTPS sulla porta 443).
+
+Per completare la tupla che identifica univocamente un'associazione di livello 4, Abbiamo detto che bisogna specificare anche il *protocol selector*, ossia il protocollo di trasporto utilizzato (TCP o UDP). Questo evita ambiguità nelle connessioni multiple sulla stessa porta.
+
+=== Associazione Multilivello
+
+Ad ogni livello della rete corrisponde un diverso identificatore che consente di creare un'associazione univoca tra due processi remoti di livello 7:
+
+- Livello 3: Indirizzo IP identifica la macchina fisica.
+
+- Livello 4: Porta identifica il processo sulla macchina.
+
+- Livello 7: Nome logico (hostname) permette agli utenti di interagire con il servizio.
+
+Il DNS rappresenta lo strumento che permette di creare la prima associazione tra un nome mnemonico e un indirizzo IP, consentendo l'inizio della comunicazione di rete.
+
+== Gestione delle Connessioni TCP in un Server Web
+
+Un server web deve consentire l'accesso simultaneo di `n` client e garantire che ogni flusso di comunicazione venga gestito separatamente e in modo affidabile. Per ottenere questo risultato, il server crea una nuova istanza del processo ogni volta che riceve una richiesta sulla porta `80`. Questo meccanismo si realizza tramite `fork`, che consente al server di generare un processo figlio dedicato a ciascuna connessione in ingresso.
+
+=== Funzionamento del Server e Gestione delle Porte
+
+1. *Ascolto sulla porta 80*
+
+  - Il server principale (processo padre) rimane in ascolto sulla porta 80, che è la porta standard per le richieste HTTP.
+
+  - Quando un client effettua una richiesta, il server accetta la connessione e crea un processo figlio tramite fork().
+
+2. *Assegnazione di una Porta Dinamica*
+
+  - Il processo figlio non continua a usare la porta 80 per la comunicazione con il client.
+
+  - Dopo la creazione del processo, esso effettua una richiesta esplicita per associarsi a una nuova porta (non well-known, quindi generalmente con numero superiore a 1024).
+
+  - La scelta della porta è dinamica e viene gestita dal sistema operativo o dal server stesso.
+
+3. *Aggiornamento della Tabella di Instradamento*
+
+  - L'istanza attiva del protocollo TCP/IP aggiorna una tabella interna che mappa le connessioni tra client e porte assegnate.
+
+  - Il client continua a inviare richieste alla porta 80, ma il traffico viene rediretto alla porta specifica associata a quella sessione.
+
+  - Questo consente di gestire più connessioni simultanee senza conflitti.
+
+
+#align(center, image("images/image-85.png"))
+
+== Il Protocollo TCP: Struttura e Funzionamento
+
+TCP (Transmission Control Protocol) è un protocollo orientato alla connessione, che fornisce un servizio affidabile di trasferimento dati tra processi applicativi. A differenza di altri protocolli di trasporto, TCP garantisce l'affidabilità e l'ordinamento dei dati, oltre a separare logicamente i flussi di comunicazione tra diverse coppie di processi applicativi.
+
+=== Processo di Connessione TCP
+
+Lato client: 
+
+1. *Risoluzione DNS*: Il client che intende comunicare con un server prima interroga un server DNS per ottenere l'indirizzo IP della destinazione.
+
+2. *Creazione della Socket*: Una volta ottenuto l'indirizzo IP del server, il client utilizza la primitiva `socket()`, che gli restituisce un descrittore di porta (port descriptor) necessario per la comunicazione.
+
+3. *Connessione al Server*: Il client invoca la primitiva `connect()`, specificando la tupla (porta sorgente, porta destinazione, IP sorgente, IP destinazione). Questa operazione avvia il processo di handshake TCP con il server.
+
+4. *Blocco del Client*: Dopo la `connect()`, il client attende la risposta del server, bloccandosi fino al completamento dell'operazione.
+
+Lato server:
+
+1. *Creazione della Socket*: Al momento dell'avvio, il server crea una socket con la primitiva `socket()`.
+
+2. *Binding della Porta*: Il server utilizza la primitiva `bind()`, che associa la socket a una porta specifica (es. 80 per HTTP), consentendo ai client di indirizzare correttamente le richieste.
+
+3. *Messa in Ascolto*: La primitiva `listen()` permette al server di definire il numero massimo di connessioni simultanee che può gestire.
+
+4. *Attesa di Connessioni*: Il server esegue `accept()`, che lo mette in attesa di richieste da parte dei client.
+
+5. *Gestione della Connessione*: Quando il server riceve una richiesta di connessione da un client, può creare un nuovo processo tramite `fork()`, che avrà una socket dedicata per comunicare con quel particolare client.
+
+
+#align(center, image("images/image-86.png") )
+
+=== Comunicazione e scambio dati
+
+Dopo la fase di connessione, il server e il client possono comunicare utilizzando le primitive `send()` e `receive()`, operazioni simmetriche eseguite su entrambi i lati:
+
+- Il server utilizza `send()` per inviare dati e `receive()` per riceverli.
+
+- Il client, analogamente, utilizza `send()` per trasmettere richieste e `receive()` per ricevere le risposte.
+
+=== Caratteristiche distintive di TCP
+
+1. *Orientato alla Connessione*: Prima di poter trasferire dati, i due processi devono stabilire una connessione TCP attraverso un handshake.
+
+2. *Separazione dei Flussi*: Ogni coppia di processi attivi dispone di un canale di comunicazione separato, garantendo che il traffico di una coppia di processi non interferisca con quello di un'altra.
+
+3. *Affidabilità*: TCP garantisce la corretta consegna dei pacchetti, rileva e corregge errori, e gestisce la ritrasmissione dei pacchetti persi.
+
+4. *Gestione delle Connessioni*: TCP segue un ciclo di vita ben definito per le connessioni, che include tre fasi:
+
+  - *Apertura* (Open): Inizializzazione della connessione tramite connect().
+
+  - *Trasferimento dati* (Data Transfer): Scambio di dati tra client e server.
+
+  - *Chiusura* (Close): Terminazione della connessione una volta completato il trasferimento dei dati.
+
+
+TCP rappresenta uno dei protocolli fondamentali della suite TCP/IP, essenziale per applicazioni che richiedono trasmissione dati affidabile, come HTTP, FTP e SSH. La sua architettura orientata alla connessione e la gestione rigorosa dei flussi di comunicazione lo rendono una soluzione solida per la trasmissione di dati in rete
+
+== Header TCP
+
+Il TCP (Transmission Control Protocol) è un protocollo *orientato alla connessione* e garantisce l'affidabilità della trasmissione dei dati tra due processi applicativi. La sua struttura di header include diversi campi essenziali per la gestione della comunicazione.
+
+=== Struttura dell'Header TCP
+
+#align(center, image("images/image-87.png"))
+
+L'header TCP standard ha una dimensione minima di 20 byte (5 parole da 32 bit) e può estendersi con opzioni aggiuntive. I campi principali sono:
+
+1. *Source Port* (16 bit) e *Destination Port* (16 bit)
+
+  - Identificano rispettivamente la porta di origine e la porta di destinazione della connessione.
+
+2. *Sequence Number* (32 bit)
+
+  - TCP è un protocollo basato su byte stream, quindi questo campo non identifica un numero di frame o segmenti, ma il numero di un byte all'interno del flusso di dati.
+
+- L'uso di 32 bit consente di gestire numeri di sequenza molto elevati, necessari per garantire l'affidabilità della trasmissione.
+
+3. *Acknowledgment Number* (32 bit)
+
+  - Indica il numero del prossimo byte atteso dal mittente, confermando così la corretta ricezione dei dati precedenti.
+
+4. *Data Offset* (4 bit)
+
+  - Indica la lunghezza dell'header TCP, specificata in parole da 32 bit (valore minimo: 5).
+
+5. *Control Flags* (Code Bits)
+
+  - Vari bit di controllo che regolano il comportamento della connessione:
+
+    - *SYN*: Segnala l'inizio di una connessione.
+
+    - *ACK*: Indica la conferma di ricezione.
+
+    - *FIN*: Richiede la chiusura della connessione.
+
+    - *RST*: Forza la chiusura della connessione.
+
+    - *PSH*: Indica che i dati devono essere immediatamente inviati all'applicazione.
+
+    - *URG*: Segnala la presenza di dati urgenti.
+
+6. *Window Size* (16 bit)
+
+  - Definisce la dimensione del buffer di ricezione disponibile per il destinatario, influenzando il controllo di flusso della connessione.
+
+  - Questa informazione è cruciale perché il client non può inviare più dati di quanti il server possa gestire.
+
+  - La dimensione del buffer è scelta dal server e comunicata in fase di apertura della connessione.
+
+7. *Checksum* (16 bit)
+
+  - Serve per la verifica dell'integrità dei dati trasmessi.
+
+8. *Urgent Pointer* (16 bit)
+
+  - Indica la posizione dell'ultimo byte di dati urgenti quando il bit URG è impostato.
+
+9. *Options* e *Padding*
+
+  - Campo opzionale usato per estendere le funzionalità del protocollo.
+
+=== Window Size e Controllo di Flusso
+
+Quando un client avvia una connessione TCP con un server, quest'ultimo assegna un *buffer di ricezione* per gestire i dati in ingresso. Questo buffer ha una capacità limitata, ad esempio *10 KB per ogni connessione attiva*.
+
+Il valore della window size è *aggiornato dinamicamente* in base alla disponibilità di memoria del server. Il client deve rispettare questo valore per evitare congestioni o perdite di dati.
+
+#align(center, image("images/image-88.png"))
+
+La comunicazione avviene in tre fasi:
+
+1. *Apertura della connessione*: Il server comunica la dimensione del suo buffer di ricezione nel campo window size dell'ACK.
+
+2. *Trasferimento dati*: Il client invia dati rispettando la finestra di ricezione del server.
+
+3. *Aggiornamento dinamico*: Il server può modificare il valore della window size in base alla disponibilità del buffer.
+
+=== Pseudo Header e Autenticazione
+
+Una connessione TCP è identificata univocamente dalla tupla (*Source Port, Destination Port, Source IP, Destination IP*). Tuttavia, questi dati non sono direttamente inclusi nell'header TCP per motivi di efficienza. Per garantire l'autenticazione e l'integrità del pacchetto, viene utilizzato un *pseudo header*.
+
+Non è parte dell'header TCP, ma viene *costruito localmente* sia dal mittente che dal destinatario. Contiene le seguenti informazioni:
+
+- IP sorgente
+
+- IP destinazione
+
+- Protocol Selector (valore 6 per TCP)
+
+- Segment Length
+
+#align(center, image("images/image-89.png", width: 10cm) )
+
+Il mittente utilizza lo pseudo header per calcolare la checksum. Il destinatario ricostruisce lo pseudo header e ricalcola la checksum per verificare l'integrità del segmento ricevuto. 
+
+Se il valore della checksum calcolata dal destinatario coincide con quello ricevuto, il segmento è considerato autentico e non alterato.
+
+== Fase Open (Three-Way Handshake)
+
+Nel protocollo TCP, l'apertura della connessione segue una procedura a tre vie, detta *Three-Way Handshake*, che coinvolge client e server utilizzando segmenti con specifici flag impostati.
+
+#align(center, image("images/image-90.png", width: 10cm))
+
+1. *Inizializzazione del Client*
+
+  - Il client si trova inizialmente nello stato `CLOSED` e avvia una connessione inviando un segmento TCP con il flag `SYN = 1` alla porta `j` del server, dalla propria porta `k`.
+
+  - Il numero di sequenza iniziale (ISN) del client non parte da zero, ma da un valore pseudo-casuale `x`, generato in base al timer locale.
+
+2. *Risposta del Server*
+
+  - Il server, ricevendo il segmento `SYN`, alloca un buffer di ricezione per il processo associato alla porta `j` e prepara una struttura per gestire le connessioni in ingresso.
+
+  - Il server risponde con un segmento contenente:
+
+    - `SYN = 1` per indicare l'intenzione di stabilire la connessione.
+
+    - `ACK = 1` per confermare la ricezione del SYN del client.
+
+    - `ACK = x + 1` per riconoscere il segmento ricevuto.
+
+    - Un nuovo numero di sequenza `y`, anch'esso generato casualmente.
+
+3. *Conferma del Client*
+
+  - Il client riceve il segmento di risposta del server e invia un ultimo segmento contenente:
+
+    - `ACK = y + 1` per confermare il segmento SYN del server.
+
+    - `SEQ = x + 1`, ovvero il primo byte utile per la trasmissione dati.
+
+A questo punto, la connessione è stabilita e il flusso di dati può iniziare.
+
+=== Gestione di un Caso Anomalo: SYN Perso o Ritardato
+
+Un possibile problema si verifica quando il primo segmento SYN inviato dal client si perde.
+
+#align(center, image("images/image-91.png", width: 10cm))
+
+In tal caso:
+
+- Il client non riceve risposta e potrebbe ritentare la connessione.
+
+- Se successivamente il server riceve un `SYN` ritardato (chiamato *SYN zombie*) con numero di sequenza `k`, il server risponde con `ACK = k + 1`.
+
+- Il client, però, avendo inizialmente inviato `SYN(x)`, si accorge dell'incoerenza (`ACK = k + 1` anziché `x + 1`) e risponde con un segmento *RST* (reset), azzerando le tabelle di connessione e ripartendo da zero.
+
+== Fase di Trasferimento Dati (Data Transfer)
+
+Una volta stabilita la connessione, i dati vengono trasmessi seguendo un meccanismo numerato per garantire un trasferimento affidabile.
+
+Supponiamo ad esempio che la disponibiltà la dimensione del buffer di ricezione del server sia `4k`.
+
+#align(center, image("images/image-92.png"))
+
+1. Il client conosce la disponibilità di 4 KB nel buffer di ricezione del server.
+
+2. Invia un primo segmento con:
+
+    - `SEQ = x`
+
+    - Payload dati = 2 KB
+
+3. Il server riceve i 2 KB, li memorizza nel buffer e aggiorna l'ACK:
+
+  - `ACK = x + 2K + 1`
+
+  - Imposta Window Size = 2K (per indicare la capacità rimanente del buffer).
+
+4. Il client, vedendo che ha solo 2 KB disponibili, invia un altro segmento:
+
+  - `SEQ = x + 2K + 1`
+
+  - Payload dati = 2 KB
+
+5. Il server ora ha riempito completamente il buffer e risponde con:
+
+  - `ACK = x + 4K + 1`
+
+  - Window Size = 0 (indicando che il buffer è pieno).
+
+6. Il trasmettitore ora si ferma e attende che il server liberi spazio nel buffer.
+
+Questo meccanismo è chiamato *controllo di flusso*, in cui mittente e destinatario comunicano per regolare la quantità di dati in transito.
+
+== Gestione del Blocco della Finestra di Ricezione
+
+Se il client non riceve un aggiornamento della window size (Window Size ≠ 0), potrebbe aspettare *indefinitamente*. Per evitare questo problema si utilizza il *Persist Timer*:
+
+- Quando scade il persist timer, il client invia un *probe* (messaggio di sondaggio) per verificare se il server ha liberato spazio.
+
+- Il server risponde con un *Window Update*, permettendo al client di riprendere la trasmissione.
+
+Questo meccanismo previene il blocco della comunicazione in caso di perdita di aggiornamenti della finestra di ricezione.
+
+= Lezione 16
