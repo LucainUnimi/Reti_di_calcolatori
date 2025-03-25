@@ -2790,4 +2790,218 @@ Se il client non riceve un aggiornamento della window size (Window Size ≠ 0), 
 
 Questo meccanismo previene il blocco della comunicazione in caso di perdita di aggiornamenti della finestra di ricezione.
 
+== Gestione del Keep-Alive Timer (K.A.T) nelle Connessioni TCP
+
+Il Keep-Alive Timer (K.A.T) è un meccanismo utilizzato per rilevare la perdita di connessione in comunicazioni TCP prolungate.
+
+Quando il client interrompe la comunicazione in modo imprevisto pur mantenendo la connessione aperta, il server trasmette periodicamente dei *probe* per verificare la presenza del client.
+
+Se il client non risponde entro un certo numero di tentativi (k), il server considera la connessione interrotta e la chiude, evitando uno spreco di risorse. Tuttavia, la scelta del valore di K.A.T è critica:
+
+- Un *K.A.T troppo breve* penalizza il client, poiché potrebbe causare la chiusura della connessione anche in presenza di ritardi momentanei o congestioni di rete.
+
+- Un *K.A.T troppo lungo* penalizza il server, che manterrebbe connessioni inattive per un tempo eccessivo, riducendo l'efficienza nell'uso delle risorse.
+
+Per ottimizzare il sistema, è necessario bilanciare questi aspetti in base al contesto applicativo, alla stabilità della rete e ai requisiti di disponibilità del servizio.
+
 = Lezione 16
+
+== RTO e Fast Retransmit: Gestione degli ACK e dei Numeri di Sequenza in TCP
+
+La trasmissione dati su TCP utilizza meccanismi di controllo per garantire l'affidabilità, tra cui l'uso di *ACK cumulativi*, il *Retransmission Timeout (RTO)* e il *Fast Retransmit*.
+
+=== Numeri di sequenza e ACK cumulativo
+
+- TCP numera i byte trasmessi e utilizzando un meccanismo di ACK cumulativo, che abbiamo detto conferma l'ultima *sequenza* di byte riceviti in ordine.
+
+- Quando un segmento viene perso, il destinatario continua a inviare ACK con l'ultimo numero di sequenza ricevuto correttamente.
+
+- Il mittente, se non riceve un ACK aggiornato, attende lo scadere del *RTO* per ritrasmettere il segmento perso.
+
+#tip[
+Analizziamo il seguente esempio:
+
+#align(center, image("images/image-93.png"))
+
+1. Il mittente trasmette segmenti da `X` a `X + 4001` con dimensione di segmento 1000B.
+
+2. Il segmento `X + 2001` viene perso.
+
+3. Il destinatario riceve gli altri segmenti (`X + 3001`, `X + 4001`), ma non può accettarli in ordine, quindi continua a inviare ACK per `X + 2001`.
+
+4. Il timer RTO per `X + 2001` scade, attivando la ritrasmissione del segmento mancante.
+
+5. Dopo aver ricevuto `X + 2001`, il destinatario può ricostruire correttamente i dati e invia ACK `X + 5001`.
+]
+
+=== RTO (retrasmission Timeout)
+
+Ogni segmento trasmesso ha un timer *RTO*. Se l'ACK corrispondente non viene ricevuto prima dello scadere del timer, il segmento viene ritrasmesso.
+
+#note[
+Il valore di RTO è fondamentale: se troppo alto, si spreca tempo; se troppo basso, si rischia di ritrasmettere inutilmente dati.
+]
+
+=== Fast Retransmit (tipico di TCP)
+
+Attendere lo scadere di RTO può essere inefficiente. Il meccanismo *Fast Retransmit anticipa la ritrasmissione di un segmento perso* quando il mittente riceve tre ACK duplicati per lo stesso numero di sequenza.
+
+#tip[
+Ad esempio, se il segmento `X + 2001` è perso e il mittente riceve tre ACK per `X + 2001`, considera il segmento smarrito e lo ritrasmette immediatamente, senza attendere RTO.
+
+Dopo aver ricevuto ACK `X + 5001`, il mittente ripristina la trasmissione normale
+]
+
+=== Strategie di controllo degli errori
+
+- *Lato Client*: utilizza una logica *Go-Back-N*, in cui ritrasmette i segmenti successivi se necessario.
+
+- *Lato Server*: lavora in *Selective Repeat*, memorizzando i segmenti ricevuti fuori ordine per ricostruire la sequenza senza richiedere ritrasmissioni superflue.
+
+=== Finestra di trasmissione
+
+Il valore della Window Size (WA) è 64 KB, mentre la Segment Size (SS) è 1000 B. Questo significa che il mittente può trasmettere fino a 64 segmenti senza attendere ACK, sfruttando la finestra di ricezione.
+
+La comunicazione avviene quindi in *modalità asincrona*, riducendo la latenza
+
+== Nagle e Clark per l'ottimizzazione della comunicazione TCP
+
+Le politiche di *Nagle* e *Clark* sono due tecniche adottate dal protocollo TCP per ridurre l'inefficienza della comunicazione in scenari in cui trasmettitore e ricevitore hanno capacità asimmetriche di produzione e consumo dei dati. Queste tecniche *si adattano autonomamente alla situazione* per migliorare le prestazioni della trasmissione.
+
+Supponiamo di avere un trasmettitore lento (ad esempio, un utente che scrive carattere per carattere su una tastiera) e un ricevitore veloce nel consumo dei dati. In questo scenario, ogni carattere inviato dal trasmettitore genera tre messaggi di risposta da parte del ricevitore:
+
+1. ACK (Acknowledgment) per confermare la ricezione del carattere
+2. *Window Size*(WS) per aggiornare la finestra di ricezione
+3. *Echo del carattere* per visualizzarlo sul terminale remoto
+
+#align(center, image("images/image-94.png", width: 10cm))
+
+Questa dinamica comporta un *elevato overhead* di comunicazione per ogni singolo carattere inviato.
+
+Per risolvere il problema dell'overhead, TCP adotta due tecniche principali
+
+=== Nagle
+
+La politica di Nagle riduce l'overhead *aggregando* più caratteri in un unico pacchetto dati prima di trasmetterlo. Il comportamento adattivo della politica segue le seguenti regole:
+
+- Se il mittente ha dati da inviare e non ci sono altri pacchetti in volo non ancora confermati, invia immediatamente il pacchetto.
+
+- Se il mittente sta ricevendo ACK per i pacchetti precedenti, può accumulare i nuovi caratteri in un buffer e trasmetterli in un unico pacchetto quando riceve un ACK.
+
+Questa strategia consente di ottimizzare la trasmissione riducendo il numero di piccoli pacchetti inviati, evitando di sovraccaricare la rete con numerosi messaggi di dimensioni ridotte.
+
+=== Clark
+
+Supponiamo invece di avere un mittente veloce a produrre, ma un ricevitore lento a consumare, che quindi svuota lentamente il suo buffer di ricezione.
+
+Il problema qui è che se il ricevitore riempe il suo buffer ma questo estrae un carattere ogni 10 millisecondi, parte un windows update, fino a quando non si è svuotato. Anche questa cosa causa overhead.
+
+#align(center, image("images/image-95.png", width: 10cm))
+
+In questo caso per risolvere il problema TCP adotta la politica di Clark.
+
+La politica di Clark *agisce lato ricevitore* ed è basata sull'uso di un *timer* per ridurre l'invio eccessivo di ACK. Il ricevitore:
+
+- Non invia immediatamente ACK, WS ed echo per ogni carattere ricevuto.
+
+- Attende un certo intervallo di tempo T prima di raggruppare più risposte in un unico messaggio di ritorno.
+
+- Questo intervallo T è pari al minimo fra la metà del buffer di ricezione, e la maximum segmentation size: $min(1/2 "buffer", 1"MSS")$
+
+- Questa strategia riduce l'eccessivo numero di pacchetti di controllo inviati dal ricevitore, ottimizzando l'efficienza della comunicazione.
+
+=== Meccanismo di self-clocking
+
+Un concetto chiave che emerge dall'uso combinato delle due politiche è il *self-clocking*:
+
+- L'ACK ricevuto funge da trigger clock per il trasmettitore, regolando il flusso di trasmissione.
+
+- Durante la finestra temporale che intercorre tra l'invio di un carattere e la ricezione dell'ACK (tempo pari a RTT + T), il trasmettitore può accumulare più caratteri da inviare insieme, ottimizzando il traffico.
+
+#important[
+Queste due tecniche vengono dette *Self-adaptive*. Sono installate in ogni installazione di TCP, e non devono essere configurate o attivate: appena misurano una lentezza lato ricevitore o una lentezza lato mittente, entrano in gioco e riducono l'overhead.
+]
+
+== Dimensionamento della finestra di trasmissione in TCP
+
+Il protocollo TCP utilizza una finestra di trasmissione per regolare il flusso di dati tra mittente e destinatario. L'obiettivo è ottimizzare il throughput evitando sia il riempimento eccessivo del buffer di ricezione sia la congestione della rete.
+
+Tuttavia, la rete può non essere in grado di supportare il traffico massimo consentito dal buffer di ricezione. Questo può causare perdite di pacchetti (packet dropping) e degrado delle prestazioni. TCP deve quindi adattare dinamicamente la finestra di trasmissione in base alle condizioni della rete, regolando il traffico in modo da prevenire congestioni.
+
+#important[
+TCP è dimensionato in base allo stato della rete.
+]
+
+=== Meccanismo di adattamento della finestra di trasmissione
+
+TCP utilizza una tecnica chiamata *congestion window* (*cwnd*) per modulare il traffico trasmesso. La regolazione della cwnd avviene tramite due fasi principali:
+
+- *Slow Start*
+
+- *Congestion Avoidance*
+
+==== Slow Start
+
+- All'inizio, TCP invia solo `1 MSS` (Maximum Segment Size).
+
+- Per ogni ACK ricevuto, aumenta la cwnd di `1 MSS`.
+
+- Questo porta a una *crescita esponenziale* della finestra di congestione.
+
+- La crescita continua fino a raggiungere una soglia chiamata *ssthresh* (Slow Start Threshold).
+
+==== Congestion Avoidance
+
+- Una volta superata la soglia ssthresh, la crescita della finestra di congestione diventa *lineare*.
+
+- Per ogni ACK ricevuto, la finestra aumenta di `1 MSS` per *round-trip time* (RTT).
+
+- Questo evita che la rete venga sovraccaricata troppo rapidamente.
+
+#align(center, image("images/image-96.png") )
+
+=== Gestione degli errori e congestione
+
+Quando TCP rileva la perdita di pacchetti, assume che la rete sia congestionata e riduce la finestra di trasmissione per evitare un peggioramento della situazione. Il comportamento dipende dal tipo di errore rilevato:
+
+==== Timeout RTO (Retransmission Timeout)
+
+Se un segmento non viene riconosciuto entro il timeout RTO, TCP interpreta l’assenza dell’ACK come un segnale di congestione grave.
+
+Le azioni intraprese sono:
+
+- Impostare cwnd a `1 MSS` → Riparte da slow start.
+
+- Dimezzare ssthresh → ssthresh = `flightsize / 2`.
+
+Questa strategia riduce drasticamente il traffico per prevenire il collasso della rete.
+
+#align(center, image("images/image-97.png") )
+
+==== Fast Retransmit
+
+Se TCP riceve tre duplicati ACK per un segmento, assume che il pacchetto sia stato perso ma che la rete non sia completamente congestionata.
+
+Le azioni intraprese sono:
+
+- Dimezzare ssthresh → ssthresh = `flightsize / 2`.
+
+- Impostare cwnd a ssthresh → Consente una ripresa più rapida della trasmissione rispetto al timeout RTO.
+
+- Evitare il ritorno alla fase di slow start → Questo previene un rallentamento eccessivo della trasmissione.
+
+#align(center, image("images/image-98.png"))
+
+=== Conclusione
+
+L'algoritmo di controllo della congestione di TCP segue le specifiche dell'*RFC 5681* e adatta la finestra di trasmissione dinamicamente:
+
+- Aumenta gradualmente il traffico fino al primo segnale di congestione.
+
+- Riduce la finestra in caso di errori per prevenire ulteriore congestione.
+
+- Usa strategie diverse a seconda che l’errore sia rilevato tramite timeout RTO o fast retransmit.
+
+Questa gestione permette a TCP di massimizzare il throughput minimizzando il rischio di saturare la rete.
+
+#align(center, image("images/image-99.png", width: 10cm))
