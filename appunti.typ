@@ -2870,7 +2870,7 @@ Le politiche di *Nagle* e *Clark* sono due tecniche adottate dal protocollo TCP 
 
 Supponiamo di avere un trasmettitore lento (ad esempio, un utente che scrive carattere per carattere su una tastiera) e un ricevitore veloce nel consumo dei dati. In questo scenario, ogni carattere inviato dal trasmettitore genera tre messaggi di risposta da parte del ricevitore:
 
-1. ACK (Acknowledgment) per confermare la ricezione del carattere
+1. *ACK* (Acknowledgment) per confermare la ricezione del carattere
 2. *Window Size*(WS) per aggiornare la finestra di ricezione
 3. *Echo del carattere* per visualizzarlo sul terminale remoto
 
@@ -3004,4 +3004,322 @@ L'algoritmo di controllo della congestione di TCP segue le specifiche dell'*RFC 
 
 Questa gestione permette a TCP di massimizzare il throughput minimizzando il rischio di saturare la rete.
 
-#align(center, image("images/image-99.png", width: 10cm))
+#align(center, image("images/image-99.png", width: 8cm))
+
+= Lezione 17
+
+== Dimensionamento timer di ritrasmissione (RTO) in TCP
+
+Nel protocollo TCP, il timer di ritrasmissione (*RTO*) è un valore critico per garantire l'affidabilità della comunicazione. Il suo dimensionamento è fondamentale per evitare ritrasmissioni premature o ritardi eccessivi.
+
+1. Problema del dimensionamento di RTO
+
+A livello 2 (collegamento dati), si potrebbe calcolare RTO conoscendo il tempo di trasmissione e il tempo di propagazione.
+A livello 4 (trasporto), queste informazioni non sono direttamente disponibili, quindi si adotta un *approccio adattivo* basato sulla misurazione dell'*RTT* (Round Trip Time), cioè il tempo tra l'invio di un segmento e la ricezione dell'ACK corrispondente.
+
+#align(center, image("images/image-100.png", width: 8cm))
+
+2. Stima dell'RTT e aggiornamento del valore storico
+
+Ogni segmento inviato fornisce una misura dell’RTT (calcolo tempo che intercorre tra l'invio del messaggio e la sua recezione). Questo valore varia nel tempo, quindi si utilizza una media pesata per tener conto della storia delle misurazioni. La formula per aggiornare l’RTT stimato è:
+
+#align(center, $"RTT"_"new" = alpha * "RTT"_"old" + (1-alpha)* M$)
+
+Dove:
+
+- $M$ = nuova misura di RTT per il segmento
+- $alpha$ = peso del valore storico (tipicamente $0.9$)
+
+L'uso di $0.9$ implica che il valore di RTT si aggiorna in modo graduale, riducendo l’impatto delle variazioni improvvise.
+
+3. Stima della deviazione dell'RTT
+
+Oltre alla stima dell’RTT medio, TCP tiene conto della deviazione $D$ per misurare quanto il ritardo varia nel tempo. Anche qui si usa un aggiornamento con media pesata:
+
+#align(center, $D_"new" = alpha * D_"old"+(1-alpha)* abs("RTT"_"old" - M)$ )
+
+Dove:
+
+- $D$ rappresenta la deviazione dell’RTT misurato rispetto alla stima storica
+
+4. Calcolo del Timer di Ritrasmissione (RTO)
+
+Il valore finale di RTO viene determinato come somma della stima dell’RTT e di una quantità proporzionale alla deviazione:
+
+#align(center, $"RTO" = "RTT" + 4D$)
+
+Il fattore $4D$ serve per coprire le possibili variazioni nell’RTT, riducendo il rischio di ritrasmissioni premature.
+
+#note[
+- Se *$alpha$ tende a 1*: pesa di più il valore storico di $"RTT"$ piuttosto che il valore appena misurato
+- Se *$alpha$ tende a 0*: viceversa.
+]
+
+#tip[
+*Esempio di calcolo*
+
+- $"RTT" = 32"ms"$
+- $M = 34"ms"$ (nuova misura)
+- $D_0 = 10"ms"$
+- $alpha = 0.9$
+
+- Passo 1: Calcolo del nuovo RTT:
+
+#align(center, $"RTT"_"new"=0.9 * 32 + (1-0.9) * 34 = 28.8 + 3.4 = 32.2"ms"$)
+
+- Passo 2: Calcolo della deviazione:
+
+#align(center, $D_"new"=0.9*10+(1-0.9)*abs(32-34) = 9+0.2 =9.2"ms"$)
+
+- Passo 3: Calcolo di RTO:
+
+#align(center, $"RTO"="RTT"+4D=32.2+4*9.2=69"ms"$)
+]
+
+Il metodo adottato da TCP per stimare l’RTO bilancia stabilità e adattabilità:
+
+- Un valore alto di $alpha$ mantiene la continuità storica, evitando reazioni eccessive a variazioni occasionali.
+
+- La componente $4D$ permette di gestire variazioni di RTT, riducendo ritrasmissioni inutili.
+
+- Ogni nuovo valore di RTT influenza progressivamente la stima, senza stravolgere i valori precedenti.
+
+Questo sistema consente a TCP di adattarsi dinamicamente alle condizioni della rete, ottimizzando l’uso delle risorse.
+
+#warning[
+Sbagliare a dimensionare RTO può portare ad una riduzione della finestra di trasmissione e quindi all'efficienza del servizio, anche se non era necessario.
+]
+
+Qual'è il valore di RTT su una connessione appena aperta?
+
+- Primo segmento: $"RTO" = 3s$ di default
+- Secondo segmento: $"RTO" = M + 4 *(M/2) = 3M$. non ho $D_0$ e $"RTT"_0$.
+
+Dal terzo segmento uso le formule precedenti.
+
+== Karn
+
+Consideriamo il caso con un trasmettitore S con un traffico molto basso: FR NON si attiva.
+
+- *Caso 1*: Perdita di un ACK
+
+#align(center, image("images/image-101.png", width: 8cm))
+
+Nel momento in cui si verifica la perdita di un ACK, come possiamo stimare il $"RTT"$?
+
+Definiamo:
+
+- $"RTT"_1$: tempo tra la prima trasmissione del segmento e la ricezione dell'ACK.
+- $"RTT"_2$: tempo tra l'ultima trasmissione del segmento (quella andata a buon fine) e la ricezione dell'ACK.
+
+Poiché non sappiamo a quale trasmissione è associato l'ACK ricevuto, potremmo erroneamente prendere in considerazione un valore errato di $"RTT"$, con il rischio di sovradimensionare il valore di $"RTO"$.
+
+- *Caso 2*: Timeout di RTO prima della ricezione dell'ACK
+
+#align(center, image("images/image-102.png", width: 8cm))
+
+Se il timer di ritrasmissione scade prima che arrivi un ACK, il trasmettitore `S` ritrasmette il segmento.
+
+- Il valore di $"RTT"$ viene misurato a partire dalla seconda trasmissione, ma il primo ACK ricevuto potrebbe in realtà riferirsi alla prima trasmissione.
+
+- Questo porta a una *sottostima di $"RTT"$*, con il rischio di sottodimensionare il prossimo valore di RTO.
+
+=== Soluzione: regola di Karn
+
+Per evitare errori nella stima di $"RTT"$, TCP segue la Regola di *Karn*:
+
+1. Se avviene una ritrasmissione, TCP ignora la misura di $"RTT"$ per quel segmento.
+
+2. Invece di aggiornare il valore di $"RTO"$ con l'$"RTT"$ misurato, TCP raddoppia il valore di $"RTO"$ attuale:
+
+#align(center, $"RTO"_"new"=2*"RTO"_"old"$)
+
+3. Ad ogni ulteriore ritrasmissione consecutiva, il valore di $"RTO"$ continua a crescere esponenzialmente (3, 4 volte il valore precedente, e così via).
+
+Questa politica consente di *evitare sottostime* e garantisce un adattamento più prudente in condizioni di congestione della rete.
+
+== Differenze nelle Implementazioni TCP: Misurazione del RTT
+
+Non tutte le implementazioni di TCP sono uguali: una delle principali differenze riguarda il modo in cui le due entità in comunicazione misurano il Round Trip Time (RTT).
+
+=== Strategie di Misurazione del RTT
+
+Non tutte le macchine misurano il RTT per ogni segmento, poiché si tratta di un'operazione onerosa in termini di risorse computazionali.
+
+La scelta della strategia di misurazione dipende dalle dimensioni della finestra di congestione:
+
+- *Finestre di piccole dimensioni* → può essere inefficiente misurare il RTT per ogni segmento.
+
+- *Finestre di grandi dimensioni* → la misurazione accurata del RTT diventa essenziale per garantire un flusso di dati più fluido ed efficiente.
+
+=== Utilizzo dei Timestamp TCP
+
+Alcune implementazioni adottano una tecnica più precisa per misurare il RTT utilizzando l'opzione *Timestamp* nell'header TCP.
+
+#align(center, image("images/image-103.png", width: 8cm))
+
+#align(center, image("images/image-104.png", width: 8cm))
+
+#tip[
+`S` calcola $"RTT"$ del segmento 1 quando riceve, con l'ACK del segmento che ha inviato, lo stesso $"TS"_"t1"$. In questo modo non gestisce il tempo salvandolo in un registro locale, ma usa uno spazio nell'header del segmento inviato.
+
+Alcune implementazioni TCP mandano un ACK ogni `n` segmenti ricevuti: in questo caso il time stamp diventa molto utile.
+
+Ad esempio, supponiamo, come si vede dalla figura sopra, che la sorgente mandi 2 segmenti, con all'interno due timestamp differenti $"TS"_"t1"$ e $"TS"_"t2"$. `R` può decidere quale timestamp mandare:
+
+- $t_1$: `S` sa di aver mandato in sequenza altri segmenti, quindi considererà un $"RTT'"$ abbondante
+- $t_2$: `S` sa che è il timestamp dell'ultimo segmento inviato, per cui sta considerando $"RTT''"$ in modo preciso.
+]
+
+Questo approccio evita ambiguità nelle ritrasmissioni e migliora la stima dell'RTO.
+
+Il Timestamp TCP consente di calcolare direttamente il tempo di andata e ritorno di un segmento senza dover associare ACK specifici alle trasmissioni originali.
+
+Questo metodo *riduce il rischio di errori* dovuti a ritrasmissioni e migliora la stima del valore ottimale di RTO.
+
+=== Negoziazione delle Opzioni TCP
+
+L'uso dei timestamp e altre funzionalità avanzate vengono negoziate durante la fase di *handshake* TCP (SYN-SYN/ACK-ACK). Durante questa fase, i due host stabiliscono anche:
+
+1. Il numero di sequenza iniziale (ISN)
+
+2. La dimensione del buffer disponibile in ricezione (advertised window)
+
+3. L'eventuale utilizzo di opzioni TCP aggiuntive, come i timestamp
+
+
+== ACK selettivo e ACK cumulativo in TCP
+
+Nel TCP standard, gli ACK cumulativi confermano la ricezione corretta di tutti i segmenti fino a un certo numero di sequenza. 
+
+#align(center, image("images/image-105.png", width: 8cm))
+
+Ad esempio, se il ricevente riceve i segmenti `1-4` e `6-10`, ma manca il `5`, invierà ripetutamente `ACK=5`, segnalando la mancanza del segmento `5` e ignorando i successivi (`6-10`). Ciò attiva ritrasmissioni inefficienti (es. ritrasmissione del solo segmento `5` con Fast Retransmit) e *introduce ritardi* significativi in scenari con RTT elevato, poiché il mittente non ha visibilità sui segmenti già ricevuti correttamente oltre il `5`.
+
+=== Soluzione: Selective ACK (SACK)
+
+Per migliorare l'efficienza nella gestione delle perdite di pacchetti, è stato introdotto il meccanismo di *Selective Acknowledgment* (SACK), definito nell'*RFC 2018*. SACK consente al ricevente di informare il mittente non solo dell'ultimo segmento ricevuto in ordine (ACK cumulativo), ma anche di eventuali segmenti ricevuti correttamente fuori ordine, facilitando la ritrasmissione mirata solo dei dati mancanti.
+
+=== Funzionamento del SACK
+
+Con SACK abilitato, un ACK trasporta due informazioni distinte:
+
+- *ACK Cumulativo*: indica l'ultima sequenza ricevuta correttamente.
+
+- *ACK Selettivo*: Segnala l'ultimo pacchetto ricevuto correttamente
+
+#align(center, image("images/image-106.png", width: 8cm))
+
+In questo caso è possibile notare come vengabo evitate ritrasmissioni superflue. Lo possiamo quindi definire un ACK cumulativo ma con più informazioni.
+
+== Chiusura della connessione TCP: Chiusura Attiva e Passiva
+
+La terminazione di una connessione TCP è un processo che segue il modello *four-way handshake*, in cui entrambe le parti chiudono la connessione *indipendentemente*. La chiusura di una connessione TCP può avvenire in modo *attivo* o *passivo*, a seconda di quale endpoint inizi la procedura.
+
+=== Chiusura attiva e passiva
+
+- *Chiusura attiva*: l'host che invoca per primo la chiusura della connessione lo fa tramite la primitiva `close()`. Questo host invia un segmento con il flag `FIN` attivo e attende la risposta dell'altro lato.
+
+- *Chiusura passiva*: l'host che riceve il `FIN` entra in stato di `CLOSE-WAIT` e può ancora inviare dati prima di chiudere la connessione. Quando anche questo lato decide di terminare, invia a sua volta un `FIN`.
+
+=== Dettagli del Processo di Chiusura
+
+#align(center, image("images/image-107.png", width: 10cm))
+
+1. L'host che chiude attivamente ($"TCP"_S$ invia il primo `FIN`
+
+  - Quando un'applicazione chiama close(), TCP invia un FIN (Final) con un numero di sequenza x e passa nello stato FIN-WAIT-1.
+
+  - Il destinatario ($"TCP"_R$ risponde con un `ACK(x+1`), indicando di aver ricevuto la richiesta di chiusura, entrando nello stato *CLOSE-WAIT*.
+
+2. L'host passivo decide di chiudere la connessione
+  - $"TCP"_R$ può mantenere la connessione aperta per elaborare dati in sospeso prima di chiudere.
+
+  - Quando $"TCP"_R$ decide di terminare la connessione, invia un `FIN(y)` e passa nello stato `LAST-ACK`.
+
+3. conferma con un ACK finale
+
+  - $"TCP"_S$ riceve il `FIN` e invia un `ACK(y+1)`.
+
+  - Entra quindi nello stato `TIME-WAIT`, dove attende per un certo intervallo (tipicamente 30 secondi – 2 minuti) per gestire eventuali pacchetti ritardati o duplicati.
+
+4. Scaduto il tempo di *TIME-WAIT*, la connessione viene definitivamente chiusa.
+
+=== Stato TIME-WAIT: Perché è necessario?
+
+Lo stato *TIME-WAIT* è fondamentale per garantire che:
+
+- Tutti i pacchetti ritardati vengano eliminati prima di una nuova connessione con lo stesso indirizzo/porta.
+
+- L’ultimo ACK inviato dal lato che chiude attivamente sia ricevuto correttamente.
+
+== UDP (User Datagram Protocol)
+
+UDP (User Datagram Protocol) è un protocollo di trasporto di livello 4 del modello TCP/IP, caratterizzato da un trasferimento *non affidabile*, con una politica best effort. A differenza di TCP, non stabilisce connessioni né garantisce l’ordine o l’integrità dei dati trasmessi, demandando questi aspetti al livello applicativo.
+
+=== Caratteristiche principali di UDP
+
+- *Protocollo senza connessione*: non vi è alcuna fase di apertura o chiusura della connessione. I pacchetti (datagrammi) vengono inviati direttamente alla destinazione.
+
+- *Best-effort*: UDP non implementa meccanismi di controllo di congestione o ritrasmissione, delegando il compito di garantire affidabilità alle applicazioni.
+
+- *Efficienza*: grazie alla sua semplicità, UDP introduce un overhead computazionale ridotto e risulta particolarmente veloce rispetto a TCP.
+
+- *Utilizzo dello pseudo-header nel checksum*: per verificare l'integrità dei dati trasmessi, il checksum di UDP considera non solo l'header e il payload, ma anche informazioni aggiuntive derivate dallo pseudo-header IP.
+
+=== Formato dell'header UDP
+
+#align(center, image("images/image-108.png"))
+
+L'header UDP è costituito da due parole da 32 bit e contiene i seguenti campi:
+
+- *Source Port*, 16 bit, Porta sorgente dell'applicazione mittente
+- *Destination Port*,	16 bit, Porta di destinazione dell'applicazione ricevente
+- *Length*, 16 bit, Lunghezza totale del datagramma UDP (header + payload)
+- *Checksum*, 16 bit, Controllo di integrità dei dati, basato su header, payload e pseudo-heade
+
+Sotto l’header si trova il payload, che rappresenta i dati effettivamente trasmessi.
+
+=== Checksum UDP e Pseudo-Header
+
+Il *checksum* in UDP è opzionale (può essere disabilitato, assumendo valore 0), ma se attivato viene calcolato su:
+
+1. Header UDP
+
+2. Payload UDP
+
+3. Pseudo-header, che include informazioni dalla rete sottostante IP:
+
+  - Indirizzo IP sorgente
+
+  - Indirizzo IP destinazione
+
+  - Protocol selector (valore 17 per UDP)
+
+  - Lunghezza totale del datagramma UDP
+
+Il checksum viene utilizzato esclusivamente per determinare se il pacchetto ricevuto è integro o corrotto; in caso di errore, il pacchetto viene scartato.
+
+=== UDP: Un "Non Protocollo"?
+
+UDP è talvolta definito un "non protocollo", poiché:
+
+- Non garantisce affidabilità, ordine dei pacchetti o controllo di flusso.
+
+- Non prevede alcun meccanismo di gestione della congestione.
+
+- Si limita a gestire l’apertura e la chiusura delle porte di comunicazione e a generare le intestazioni e il checksum.
+
+Di fatto, UDP può essere visto come un meccanismo minimo di trasporto che fornisce solo il necessario per incapsulare dati e recapitarli alla destinazione.
+
+=== Quando utilizzare UDP invece di TCP?
+
+UDP viene scelto quando il requisito principale è la *velocità* piuttosto che l'affidabilità. È particolarmente adatto per applicazioni che:
+
+- *Non necessitano di un ordine rigoroso dei pacchetti* (es. streaming multimediale, VoIP).
+
+- *Possono tollerare perdite occasionali di dati* senza compromettere l’usabilità (es. giochi online, DNS).
+
+- *Devono ridurre al minimo la latenza* (es. comunicazioni real-time, trasmissioni broadcast/multicast).
+
+Se invece è fondamentale garantire il recapito dei dati e il controllo di congestione, è preferibile usare TCP.
