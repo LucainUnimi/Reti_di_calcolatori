@@ -3802,6 +3802,106 @@ Di seguito uno scambio di messaggi sul canale:
 
 == HTTP
 
-con http riesco a fare il get di unfile secondo uno schema rigosamente request reply. manda una richiesta e si aspetta una risposta.
+*HTTP (HyperText Transfer Protocol)* è un protocollo di comunicazione per il trasferimento di informazioni sul web. Funziona secondo un modello *request-reply*: un client invia una richiesta (ad esempio, una GET) a un server, che risponde con il contenuto richiesto.
 
-abbiamo versione 1.0 che collega un server sulla porta 80.
+== HTTP/1.0: Connessione Non Permanente
+
+La prima versione ufficiale di HTTP, `HTTP/1.0`, stabilisce che ogni richiesta venga gestita attraverso una *connessione non permanente*:
+
+- Il client apre una connessione TCP al server sulla porta 80.
+
+- Il server elabora la richiesta e invia la risposta.
+
+- La connessione viene chiusa immediatamente dopo la trasmissione della risposta.
+
+#align(center, image("images/image-122.png"))
+
+== Problemi di HTTP/1.0
+
+1. *Overhead di Connessione*: Ogni oggetto richiesto richiede l'apertura di una nuova connessione, aumentando il carico lato server.
+
+2. *Efficienza del TCP Limitata*:
+
+  - TCP utilizza il meccanismo di slow start, che limita inizialmente la velocità di trasmissione per evitare congestione.
+
+  - Aprendo e chiudendo continuamente connessioni, non si raggiunge mai il throughput ottimale.
+
+== HTTP/1.1: Connessione Permanente e Pipelining
+
+Per superare i limiti di `HTTP/1.0`, viene introdotto `HTTP/1.1`, che introduce *connessione permanente* e *pipelining*
+
+=== Connessione permanente
+
+- *Keep-Alive*: La connessione TCP rimane aperta per più richieste, riducendo overhead e migliorando le prestazioni.
+
+- Il client può inviare più richieste senza dover ristabilire una connessione per ogni oggetto.
+
+=== HTTP pipelining
+
+- Permette di inviare più richieste in successione *senza aspettare la risposta della precedente*.
+
+- Il server deve rispondere nello stesso ordine delle richieste.
+
+#align(center, image("images/image-123.png", width: 8cm))
+
+#align(center, image("images/image-124.png", width: 10cm))
+
+=== Head-of-Line (HoL) Blocking
+
+- Se una richiesta richiede molto tempo per essere elaborata, tutte le altre richieste successive nella pipeline devono attendere.
+
+- `HTTP/2` risolve questo problema introducendo il multiplexing.
+
+== HTTP/2: Multiplexing e Compressione degli Header
+
+HTTP/2 introduce una gestione più efficiente delle connessioni grazie a:
+
+1. Multiplexing
+
+  - In HTTP/2, un'unica connessione TCP può trasportare più stream concorrenti.
+
+  - Elimina il problema di Head-of-Line Blocking a livello applicativo (livello 7 OSI).
+
+2. Server Push
+
+- Il server può anticipare l'invio di risorse (es. CSS, JavaScript) senza che il client le richieda.
+
+3. Compressione degli Header
+
+  - Riduce il volume di dati trasferiti tra client e server con tecniche come HPACK, evitando ripetizioni inutili nelle richieste.
+
+=== Limite di HTTP/2: Persistenza dell'HoL Blocking a livello TCP
+
+- TCP è un protocollo stream-oriented, che garantisce l'ordine e l'affidabilità dei pacchetti.
+
+- Se un pacchetto viene perso, *tutti gli stream nella connessione devono attendere la sua ritrasmissione*.
+
+- `HTTP/3` risolve questo problema abbandonando TCP in favore di QUIC.
+
+== HTTP/3: Il Passaggio a QUIC
+
+HTTP/3 si basa su *QUIC* (Quick UDP Internet Connections), che utilizza *UDP* invece di TCP, risolvendo il problema del *Head-of-Line Blocking* a livello di trasporto
+
+Di seguito le caratteristiche di QUIC:
+
+- *Multiplexing nativo*: Ogni stream è indipendente dagli altri.
+
+- *Recupero rapido dei pacchetti persi*: La perdita di un pacchetto non blocca l'intero flusso.
+
+- *Connessione più veloce*: Utilizza 0-RTT Handshake, permettendo di riprendere connessioni precedenti istantaneamente.
+
+- *Sicurezza integrata*: QUIC incorpora direttamente TLS 1.3, eliminando la necessità di una negoziazione separata.
+
+== Conclusione
+
+L'evoluzione di HTTP ha migliorato drasticamente le prestazioni del web:
+
+- `HTTP/1.0` era inefficiente a causa delle connessioni non permanenti.
+
+- `HTTP/1.1` ha introdotto le connessioni persistenti e il pipelining, ma soffriva ancora di Head-of-Line Blocking.
+
+- `HTTP/2` ha introdotto il multiplexing e la compressione degli header, ma il problema del TCP persisteva.
+
+- `HTTP/3`, grazie a QUIC, risolve finalmente il problema di congestione e latenza, garantendo connessioni più veloci e affidabili.
+
+Con l'adozione sempre più diffusa di `HTTP/3`, il web diventerà ancora più efficiente, riducendo i tempi di caricamento e migliorando l'esperienza utente complessiva.
