@@ -3323,3 +3323,285 @@ UDP viene scelto quando il requisito principale è la *velocità* piuttosto che 
 - *Devono ridurre al minimo la latenza* (es. comunicazioni real-time, trasmissioni broadcast/multicast).
 
 Se invece è fondamentale garantire il recapito dei dati e il controllo di congestione, è preferibile usare TCP.
+
+= Lezione 18
+
+== Protocolli per il Traffico Real-Time: RTP e RTCP
+
+Il traffico real-time, come quello audio e video, richiede protocolli specializzati per garantire una trasmissione efficiente e a bassa latenza. Due protocolli fondamentali in questo contesto sono:
+
+- *RTP (Real-Time Protocol)*: responsabile della trasmissione dei dati multimediali.
+
+- *RTCP (Real-Time Control Protocol)*: utilizzato per il controllo della qualità del servizio e la sincronizzazione.
+
+Questi protocolli *operano sempre in coppia* e appartengono a una nuova tipologia di protocolli che *separano nettamente i dati dal controllo*, migliorando l'efficienza nella gestione del traffico real-time.
+
+#align(center, image("images/image-109.png", width: 10cm))
+
+=== Caratteristiche Generali di RTP e RTCP
+
+- *Separazione tra dati e controllo*: ogni flusso multimediale (audio o video) è gestito da una coppia di protocolli RTP/RTCP.
+
+- *Affidabilità non prioritaria*: il traffico real-time ha bisogno di velocità piuttosto che di affidabilità; per questo motivo, RTP e RTCP si basano su UDP (User Datagram Protocol) a livello di trasporto (livello 4).
+
+- *Gestione delle associazioni logiche tra sorgenti e ricevitori*: UDP gestisce le associazioni logiche tra i dispositivi di trasmissione e ricezione.
+
+- *Range di porte*: non esistono porte well-known per questi protocolli, ma lo standard suggerisce l'uso di porte nel range 16000-32000.
+
+=== Struttura e Funzionamento di RTP
+
+RTP è responsabile dell'invio dei pacchetti contenenti i dati multimediali. Alcuni campi chiave dell'header RTP sono::
+
+- *Numero di sequenza*: consente al ricevitore di ricostruire i pacchetti nell'ordine corretto e di rilevare eventuali perdite di dati.
+
+- *Timestamp*: permette di misurare la latenza di rete e il jitter (variazione del tempo di arrivo dei pacchetti).
+
+- *Identificatore della sorgente (SSRC - Synchronization Source Identifier)*: distingue i vari flussi RTP provenienti da diverse sorgenti.
+
+=== Gestione delle Perdite di Pacchetti
+
+Poiché RTP utilizza UDP, non viene effettuata alcuna ritrasmissione in caso di perdita di pacchetti. Il comportamento del ricevitore dipende dal tipo di traffico:
+
+- *Traffico audio*: in caso di pacchetti persi, il playout lascia un "buco".
+
+- *Traffico video*: il playout riproduce l'ultimo frame ricevuto correttamente per mantenere una riproduzione fluida.
+
+=== Sincronizzazione Temporale e Gestione della Qualità del Servizio (QoS)
+
+La sincronizzazione temporale è cruciale per il traffico real-time. Per ottenere una corretta sincronizzazione tra trasmettitore e ricevitore, RTP include un timestamp nei pacchetti inviati. Tuttavia, per misurare con precisione parametri come ritardo (delay) e jitter, è necessaria una sincronizzazione degli orologi tra sorgente e destinatario, che può essere garantita dal *Network Time Protocol* (NTP).
+
+=== Ruolo di RTCP
+
+RTCP opera parallelamente a RTP e ha le seguenti funzioni principali:
+
+1. *Monitoraggio della Qualità del Servizio (QoS)*: raccoglie statistiche sui pacchetti persi, il jitter e la latenza.
+
+2. *Sincronizzazione dei flussi multimediali*: aiuta a mantenere sincronizzati audio e video provenienti da una stessa sorgente.
+
+3. *Adattamento dinamico della qualità del flusso*: i ricevitori possono segnalare al trasmettitore problemi di qualità, suggerendo un'eventuale modifica della codifica.
+
+=== Gestione della Qualità con i Mixer RTCP
+
+In scenari di videoconferenza con più sorgenti e destinazioni, la rete non è omogenea, e la qualità del servizio dipende dal provider di ogni partecipante. Per affrontare questo problema, vengono utilizzati *mixer RTCP*, dispositivi strategicamente posizionati all'interno della rete del provider che:
+
+- Misurano la qualità del servizio percepita dall'utente finale in termini di pacchetti persi, jitter e latenza.
+
+- Adattano il flusso multimediale in base alla capacità della rete, modificando la codifica per le stazioni che ne hanno bisogno.
+
+=== header RTP
+
+L'header di RTP è strutturato in parole da 32 bit ed è composto da una parte fissa, seguita eventualmente da una sezione opzionale.
+
+#align(center, image("images/image-110.png"))
+
+1. *Padding (P)* (1 bit)
+
+  - Indica se nel payload è presente padding. Se il bit è impostato a 1, significa che l'ultimo byte del payload contiene il numero di byte di padding aggiunti. Questo può essere utile per allineare i dati alla lunghezza desiderata dall'applicazione.
+
+2. *Extension (X)* (1 bit)
+
+  - Se impostato a 1, significa che l'header RTP contiene un'estensione opzionale. L'estensione segue immediatamente la parte fissa dell'header ed è composta da almeno 4 parole da 32 bit, seguite da ulteriori dati opzionali.
+
+3. *Contributing Source Count (CC)* (4 bit)
+
+  - Indica il numero di Contributing Sources (CSRC), ovvero sorgenti che contribuiscono al flusso RTP.
+
+4. *Marker (M)* (1 bit)
+
+  - Il significato di questo bit dipende dall'applicazione. Può essere utilizzato, ad esempio, per segnalare eventi speciali nel flusso RTP.
+
+5. *Payload Type (PT)* (7 bit)
+
+  - Specifica il formato del payload trasportato. Lo standard RTP definisce diversi valori per il tipo di payload, a seconda della codifica utilizzata (ad esempio, G.711 per l'audio, H.264 per il video).
+
+6. *Sequence Number* (16 bit)
+
+  - Numero di sequenza del pacchetto RTP.
+
+  - Questo valore aumenta di 1 a ogni nuovo pacchetto trasmesso e consente al ricevitore di rilevare eventuali perdite o riordini di pacchetti.
+
+7. *Timestamp* (32 bit)
+
+  - Indica il momento in cui il pacchetto è stato generato dalla sorgente. Il valore è ottenuto da un orologio di riferimento e consente alla destinazione di riprodurre il flusso con la corretta sincronizzazione.
+
+8. *Synchronization Source Identifier (SSRC)* (32 bit)
+
+  - Identificatore univoco della sorgente del flusso RTP. Serve a distinguere i flussi provenienti da sorgenti diverse.
+
+9. *Contributing Source Identifiers (CSRC)* (0–15 x 32 bit)
+
+  - Lista opzionale di sorgenti che hanno contribuito alla creazione del pacchetto RTP. È utile nei casi in cui più flussi vengano mixati in uno solo.
+
+=== Header RTCP
+
+L'header di RTCP include i seguenti campi principali:
+
+1. *NTP Timestamp* (Most Significant + Least Significant)
+
+  - È composto da due valori a 32 bit che rappresentano l'ora assoluta secondo l'orologio NTP (Network Time Protocol).
+
+  - Serve per sincronizzare i flussi multimediali e confrontare i tempi di trasmissione tra sorgente e destinatario.
+
+2. *RTP Timestamp* (32 bit)
+
+  - È il timestamp RTP corrispondente al pacchetto di dati associato, utile per sincronizzare i flussi audio/video con il tempo reale.
+
+3. *Packet Count* (32 bit)
+
+  - Conta il numero totale di pacchetti RTP trasmessi dalla sorgente.
+
+4. *Byte Count* (32 bit)
+
+  - Indica il numero totale di byte trasmessi nei pacchetti RTP.
+
+5. *Interarrival Jitter* (32 bit)
+
+  - Misura la variazione dei tempi di arrivo dei pacchetti RTP, utile per valutare la qualità della trasmissione e adattare la riproduzione per ridurre eventuali latenze o scatti.
+
+== Domain Name System (DNS)
+
+Il Domain Name System (DNS) è un sistema essenziale per il funzionamento di Internet, poiché consente di mappare un nome logico (hostname) su un indirizzo IP, facilitando l’accesso ai servizi di rete.
+
+=== Il DNS nel contesto della comunicazione di rete
+
+Ogni livello del modello di rete utilizza un identificatore specifico per riconoscere l'entità con cui comunica:
+
+- *Livello 2* (Data Link Layer) → Identificazione tramite *MAC Address*
+
+- *Livello 3* (Network Layer) → Identificazione tramite *Indirizzo IP*
+
+- *Livello 4* (Transport Layer) → Identificazione tramite *porte* di comunicazione
+
+- *Livello 7* (Application Layer) → Identificazione tramite *nome logico*
+
+Il DNS opera al Livello 7 (Application Layer) e *consente di tradurre un nome logico in un indirizzo IP*, permettendo così alle applicazioni di rete di individuare i server che ospitano i servizi richiesti.
+
+=== Funzionamento del DNS
+
+Quando un utente digita un indirizzo come `www.di.unimi.it`, il sistema deve risolvere questo nome in un indirizzo IP. La richiesta viene inviata a un server DNS, che restituisce l'IP corrispondente al dominio richiesto.
+
+#tip[
+Esempio di nomi logici e loro significato:
+
+- `rossi@di.unimi.it`
+
+  - Utente: `rossi`
+
+  - Dominio: `di.unimi.it`
+
+  - Servizio: posta elettronica (email)
+
+  - Il DNS fornisce l’IP del mail server responsabile della gestione delle email per `di.unimi.it`.
+
+- `www.di.unimi.it`
+
+  - Servizio: Web (WWW)
+
+  - Dominio: `di.unimi.it`
+
+  - Una query DNS per questo hostname consente di ottenere l’IP del server web che ospita il sito `di.unimi.it`.
+]
+
+#align(center, image("images/image-111.png"))
+
+=== Struttura gerarchica del DNS
+
+Il DNS è organizzato in modo *gerarchico e distribuito*, con diversi livelli di dominio:
+
+- *Top-Level Domain* (TLD): `.it`, `.com`, `.edu`, ecc.
+
+- *Second-Level Domain*: `unimi.it`, `ucla.edu`, ecc.
+
+- *Sottodomini*: `di.unimi.it`, `cs.ucla.edu`, ecc.
+
+- *Hostname*: `www.di.unimi.it`, `mail.di.unimi.it`, ecc.
+
+Ogni dominio ha un *DNS autoritativo*, che gestisce le associazioni tra i nomi logici e gli IP all'interno del proprio dominio.
+
+=== Propagazione della richiesta DNS
+
+Quando un client fa una richiesta per un dominio che non è conosciuto dal DNS locale, il sistema deve risalire l’albero gerarchico del DNS fino a trovare un server autoritativo in grado di fornire una risposta.
+
+#align(center, image("images/image-112.png", width: 10cm))
+
+1. *Il client interroga il DNS locale*
+
+  - Se il DNS locale ha già la risposta nella sua cache, restituisce subito l'indirizzo IP associato al nome richiesto.
+  - Se la risposta non è in cache, la richiesta viene inoltrata ai server DNS superiori.
+
+2. *Il DNS locale contatta un DNS di livello superiore*
+
+  - Se il dominio richiesto (`www.cs.ucla.edu`) non è conosciuto, il DNS locale inoltra la richiesta ad un *server DNS root*
+
+3. *Navigazione attraverso la gerarchia DNS*
+
+  - Il server root fornisce un riferimento ai *server DNS autoritativi* per il dominio di primo livello (`.edu`)
+  - Il server DNS.edu fornisce un riferimento al server DNS autoritativo di `ucla.edu`.
+  - Il server DNS di `ucla.edu` fornisce infine l'indirizzo IP del server responsabile per `cs.ucla.edu`.
+
+4. *Risposta e propagazione inversa*
+
+  - Il server DNS autoritativo di `cs.ucla.edu` invia la risposta con l'indirizzo IP al DNS locale
+  - Il DNS locale salva temporaneamente la risposta in cache e la restituisce al client.
+
+
+#note[
+Per evitare di dover ripetere l’intero processo di risoluzione per ogni richiesta, i server DNS locali utilizzano una cache per memorizzare temporaneamente le risposte ricevute.
+]
+
+All'interno del sistema DNS esistono due modalità principali di risoluzione dei nomi: *ricorsiva* e *iterativa*. Entrambi i metodi si basano sulla struttura gerarchica del DNS e prevedono un numero simile di interazioni con i server, sfruttando la possibilità che uno qualsiasi dei nodi coinvolti possa già disporre della risposta in cache, ottimizzando così le prestazioni complessive del processo.
+
+Nella modalità ricorsiva, il client affida completamente la risoluzione del nome al proprio server DNS locale, il quale si occupa di interagire con i server superiori fino a ottenere una risposta definitiva.
+
+#align(center, image("images/image-113.png"))
+
+Nella modalità iterativa, il client interroga progressivamente diversi server DNS, ricevendo risposte parziali fino a ottenere la risoluzione completa.
+
+#align(center, image("images/image-114.png", width: 8cm))
+
+A differenza della modalità ricorsiva, la risoluzione iterativa riduce il carico computazionale sul DNS locale, ma aumenta il numero di interazioni richieste al client, che deve gestire autonomamente le interrogazioni successive.
+
+=== Database dei Nomi DNS e Struttura delle Query
+
+Il Domain Name System (DNS) si basa su un database distribuito, strutturato in record, per associare i nomi di dominio agli indirizzi IP e ad altre informazioni.
+
+Ogni record nel database DNS contiene i seguenti campi fondamentali:
+
+- *Domain Name*: il nome del dominio associato al record.
+
+- *TTL (Time-To-Live)*: il tempo in secondi per cui il record può essere memorizzato nella cache prima di dover essere aggiornato.
+
+- *Class*: solitamente impostato a IN (Internet), specifica il tipo di rete a cui il record si applica.
+
+- *Type*: definisce la funzione del record. I principali tipi di record DNS includono:
+
+  - *A*: associa un nome di dominio a un indirizzo IPv4.
+
+  - *AAAA*: associa un nome di dominio a un indirizzo IPv6.
+
+  - *NS* (Name Server): indica il server DNS autoritativo per un dominio.
+
+  - *MX* (Mail Exchange): specifica il server di posta responsabile della gestione delle e-mail per un dominio.
+
+  - *CNAME* (Canonical Name): crea un alias per un altro dominio.
+
+  - *TXT*: contiene informazioni testuali, spesso utilizzate per autenticazione o configurazioni di sicurezza (es. SPF, DKIM).
+
+- *Value*: il valore associato al record (es. un indirizzo IP per un record A, un server mail per un record MX).
+
+#note[
+Quando viene effettuata una richiesta DNS, il resolver potrebbe dover effettuare più query sequenziali step by step per ottenere il record desiderato, specialmente se i record intermedi non sono già presenti nella cache.
+]
+
+==== Struttura di una Query DNS
+
+Le query DNS sono strutturate in pacchetti e seguono un formato ben definito. Il pacchetto di query include un header di 12 byte, seguito dalla richiesta vera e propria:
+
+- *Query Header (12 Byte)*: contiene 16 bit di identificazione assegnati dal client per abbinare la richiesta alla risposta corrispondente.
+- *QNAME*: il nome del dominio per cui si sta effettuando la richiesta.
+
+- *QTYPE*: il tipo di record richiesto (es. A, MX, CNAME).
+
+- *QCLASS*: solitamente impostato a IN (Internet).
+
+#align(center, image("images/image-115.png"))
