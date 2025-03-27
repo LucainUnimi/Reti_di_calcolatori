@@ -3605,3 +3605,203 @@ Le query DNS sono strutturate in pacchetti e seguono un formato ben definito. Il
 - *QCLASS*: solitamente impostato a IN (Internet).
 
 #align(center, image("images/image-115.png"))
+
+= Lezione 19
+
+== Architettura del Servizio di Posta Elettronica e Comunicazione Server-Server
+
+Il servizio di posta elettronica è un sistema distribuito che consente lo scambio di messaggi tra utenti attraverso una serie di componenti software e protocolli standard. Tra gli elementi fondamentali troviamo:
+
+- *User Agent (UA)*: il client di posta elettronica utilizzato dall'utente per comporre, inviare e ricevere e-mail.
+
+- *Message Transfer Agent (MTA)*: il server di posta che gestisce il trasferimento dei messaggi tra il mittente e il destinatario.
+
+- *Message Store*: un'area di archiviazione temporanea o permanente dove vengono conservati i messaggi in attesa di essere consegnati o letti.
+
+Mentre la comunicazione tra il client e il server di posta elettronica è gestita da protocolli come *POP3* e *IMAP*, la comunicazione server-server, che costituisce il fulcro del trasferimento delle e-mail tra domini diversi, avviene tramite *SMTP (Simple Mail Transfer Protocol)*.
+
+#align(center, image("images/image-116.png"))
+
+=== Flusso di comunicazione della posta elettronica
+
+1. *Composizione e Invio della Mail*
+
+  - L'utente crea un messaggio e-mail attraverso il proprio *User Agent* (UA).
+
+  - Il messaggio è composto da un header (mittente, destinatario, oggetto, ecc.) e un body (contenuto del messaggio).
+
+  - Il UA comunica con il proprio server di posta attraverso protocolli come *SMTP* (porta 587 o 465 per connessioni sicure).
+
+2. *Trasferimento al Server di Posta Mittente*
+
+  - Il messaggio viene inoltrato al *Message Transfer Agent* (MTA) del server mittente.
+
+  - Il MTA verifica il dominio del destinatario e, se diverso da quello locale, avvia il trasferimento al server remoto.
+
+3. *Comunicazione Server-Server via SMTP*
+
+  - Il MTA del server mittente si connette al MTA del server destinatario utilizzando SMTP (porta 25 per connessioni standard, 587 per connessioni autenticate).
+
+  - Il trasferimento avviene *step by step*, eventualmente attraverso più server intermedi (relay).
+
+  - Il protocollo SMTP gestisce la trasmissione del messaggio e la negoziazione della comunicazione tra server.
+
+4. *Consegna e Archiviazione nel Message Store*
+
+  - Il server destinatario accetta il messaggio e lo deposita nel proprio *Message Store*.
+
+  - Il messaggio rimane nel Message Store fino a quando il destinatario non lo scarica tramite POP3 o lo consulta via IMAP.
+
+=== Protocolli per l'accesso alla posta
+
+Una volta che il messaggio è stato consegnato al server di destinazione, l'utente può recuperarlo utilizzando due principali protocolli:
+
+- *POP3 (Post Office Protocol v3, porta 110 o 995 con SSL/TLS)*
+
+  - Permette di scaricare e rimuovere le e-mail dal server.
+
+  - Una volta scaricato, il messaggio non è più disponibile per altri dispositivi.
+
+- *IMAP (Internet Message Access Protocol, porta 143 o 993 con SSL/TLS)*
+
+  - Consente di gestire le e-mail direttamente sul server, senza doverle scaricare localmente.
+
+  - Utile per accedere alla posta da più dispositivi contemporaneamente.
+
+#tip[
+*Sintesi del Processo di Comunicazione Server-Server*
+
+1. Il client crea l'e-mail e la invia al proprio server SMTP.
+
+2. Il MTA del server mittente inoltra il messaggio al MTA del server destinatario tramite SMTP.
+
+3. Il server di destinazione memorizza il messaggio nel Message Store.
+
+4. Il destinatario accede alla posta tramite POP3 o IMAP per leggere il messaggio.
+]
+
+== NVT e MIME
+
+Nel livello 7 del modello OSI, sia per la gestione dei dati che per il controllo, il trasferimento delle informazioni tra una sorgente e una destinazione avviene utilizzando una variante del codice ASCII denominata *Network Virtual Terminal (NVT)*. Questa codifica è adottata dal protocollo *SMTP (Simple Mail Transfer Protocol)* per la trasmissione dei messaggi tra Mail Transfer Agents (MTA).
+
+=== Differenza tra ASCII e NVT
+
+La codifica NVT utilizza i *7 bit meno significativi* per rappresentare caratteri ASCII, mentre il bit più significativo è utilizzato per distinguere tra due categorie di caratteri:
+
+- *Bit impostato a 0*: il carattere seguente è un carattere ASCII standard.
+
+- *Bit impostato a 1*: il carattere seguente è un carattere di controllo.
+
+Dal momento che SMTP trasmette i dati come una semplice sequenza di caratteri ASCII, sorge il problema di come gestire contenuti non testuali, come immagini, video o file audio.
+
+==== MIME: Multipurpose Internet Mail Extensions
+
+Per superare questa limitazione, è stato introdotto *MIME (Multipurpose Internet Mail Extensions)*, un'estensione del protocollo *SMTP* che consente l'invio di dati non testuali.
+
+MIME non modifica l'uso di NVT, ma *aggiunge informazioni* nell'intestazione del messaggio per specificare:
+
+- Il tipo di contenuto (Content-Type), ad esempio testo, immagine, audio, ecc.
+
+- Il metodo di codifica (Content-Transfer-Encoding), necessario per trasformare i dati binari in un formato compatibile con NVT.
+
+#align(center, image("images/image-117.png", width: 9cm))
+
+=== Base64: la codifica per la Trasmissione
+
+Uno dei metodi più comuni per trasmettere dati binari in SMTP è la *codifica Base64*. Questo metodo consente di rappresentare dati binari utilizzando solo caratteri ASCII stampabili, rendendoli compatibili con la trasmissione via NVT.
+
+Il processo di codifica Base64 segue questi passaggi:
+
+1. La sequenza di bit originale viene suddivisa in blocchi da 6 bit ciascuno.
+
+2. I primi 2 bit e i successivi 4 bit di ogni blocco vengono interpretati come un valore numerico.
+
+3. Questo valore viene utilizzato come indice di una tabella Base64, che mappa ogni possibile valore a un carattere ASCII stampabile.
+
+4. I caratteri risultanti vengono inviati sul canale NVT.
+
+Il destinatario, al momento della ricezione, esegue il *processo inverso* per decodificare i dati nel loro formato originale.
+
+#tip[
+#align(center, image("images/image-118.png"))
+]
+
+Di seguito lo schema completo di un'architettura di posta elettronica:
+
+#align(center, image("images/image-119.png"))
+
+== SMTP
+
+Di seguito il funzionamento del protocollo SMTP:
+
+#align(center, image("images/image-120.png"))
+
+#note[
+Il traffico che viaggia sulla connessione TCP fra i due MTA è *totalmente asincrono*: Il client destinatario può ricevere messaggi in momenti diversi rispetto a quando sono stati spediti.
+
+La connessione è esclusivamente costituita da caratteri.
+]
+
+== File transfer protocol
+
+*FTP (File Transfer Protocol)* è un protocollo utilizzato per il trasferimento di file tra due macchine remote. Per garantire l'affidabilità del trasferimento, si appoggia al protocollo *TCP (Transmission Control Protocol)*.
+
+A differenza dei classici modelli *client-server*, FTP presenta una caratteristica peculiare: stabilisce una *comunicazione peer-to-peer* tra le due macchine coinvolte nel trasferimento.
+
+=== Struttura delle connessiioni in FTP
+
+FTP utilizza *due connessioni TCP distinte* tra client e server:
+
+1. *Connessione di controllo* (porta 21, lato server)
+
+  - Utilizzata per lo scambio di comandi e risposte tra client e server.
+
+  - Resta aperta per tutta la durata della sessione FTP.
+
+2. *Connessione dati* (porta 20, lato server; variabile lato client)
+
+  - Utilizzata per il trasferimento effettivo dei file.
+
+  - Può essere creata in due modalità:
+
+    - *FTP attivo*: il server apre la connessione dati verso il client.
+
+    - *FTP passivo*: il client apre la connessione dati verso il server.
+
+=== L'Anomalia della Connessione Dati in FTP
+
+Un aspetto peculiare di FTP è che, nella modalità attiva, la connessione dati viene aperta dal *server verso il client*. Questo rappresenta un'eccezione rispetto alla normale logica di apertura delle connessioni TCP, in cui tipicamente è il client a stabilire la connessione verso una porta well-known del server.
+
+Poiché la porta del client non è predefinita, il server ha bisogno di riceverne il valore per poter instaurare la connessione dati. Questo problema viene risolto attraverso il canale di controllo, nel quale il client comunica esplicitamente al server quale porta locale deve essere utilizzata per il trasferimento dei dati.
+
+=== FTP come Estensione del File System Locale
+
+FTP estende le capacità del file system locale, consentendo di operare su una macchina remota come se fosse un'unità di archiviazione locale. Ciò significa che un utente può:
+
+- Navigare tra le directory del server remoto.
+
+- Scaricare e caricare file.
+
+- Rinominare, eliminare e gestire file su una macchina distante.
+
+=== Separazione tra Piano di Controllo e Piano Dati
+
+FTP è un esempio di protocollo che separa chiaramente il piano di controllo dal piano dei dati.
+
+- La *connessione di controllo* viene utilizzata per l'autenticazione e la negoziazione delle operazioni.
+
+- La *connessione dati* viene utilizzata esclusivamente per il trasferimento dei file.
+
+Questa separazione consente un migliore controllo del flusso delle operazioni e una gestione più efficiente della comunicazione tra client e server.
+
+Di seguito uno scambio di messaggi sul canale:
+
+#align(center, image("images/image-121.png"))
+
+= Lezione 20
+
+== HTTP
+
+con http riesco a fare il get di unfile secondo uno schema rigosamente request reply. manda una richiesta e si aspetta una risposta.
+
+abbiamo versione 1.0 che collega un server sulla porta 80.
